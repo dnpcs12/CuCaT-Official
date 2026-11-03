@@ -1,0 +1,170 @@
+{
+  "gt_root": "not_included/public_release_v3_1_close_dense_temporal_delta",
+  "plan_name": "camera_poses_v3.json",
+  "fps": 30.0,
+  "clip_count": 432,
+  "run_count": 9233,
+  "group_run_count": 6827,
+  "level_definition": "distance_fov_rank coarse bins without target-anchor offset",
+  "group_definition": {
+    "close_group": [
+      "tight_close",
+      "close"
+    ],
+    "medium_group": [
+      "medium_close",
+      "medium"
+    ],
+    "far_group": [
+      "medium_far",
+      "far",
+      "wide"
+    ]
+  },
+  "duration_end_mode": "midpoint",
+  "upper_key_recommendation": "p95_sec",
+  "classes": {
+    "close": {
+      "level": "close",
+      "count": 1709,
+      "min_sec": 0.016666666666666666,
+      "mean_sec": 0.8254827384435343,
+      "p10_sec": 0.016666666666666666,
+      "p25_sec": 0.15,
+      "median_sec": 0.55,
+      "p70_sec": 1.0166666666666666,
+      "p75_sec": 1.15,
+      "p90_sec": 1.870000000000001,
+      "p95_sec": 2.5466666666666624,
+      "p99_sec": 4.529333333333336,
+      "max_sec": 11.666666666666666
+    },
+    "far": {
+      "level": "far",
+      "count": 294,
+      "min_sec": 0.016666666666666666,
+      "mean_sec": 0.8483560090702947,
+      "p10_sec": 0.016666666666666666,
+      "p25_sec": 0.15,
+      "median_sec": 0.65,
+      "p70_sec": 1.018333333333333,
+      "p75_sec": 1.15,
+      "p90_sec": 1.7833333333333334,
+      "p95_sec": 2.4849999999999968,
+      "p99_sec": 4.932333333333329,
+      "max_sec": 7.65
+    },
+    "medium": {
+      "level": "medium",
+      "count": 1903,
+      "min_sec": 0.016666666666666666,
+      "mean_sec": 0.8467332282361184,
+      "p10_sec": 0.016666666666666666,
+      "p25_sec": 0.03333333333333333,
+      "median_sec": 0.5333333333333333,
+      "p70_sec": 1.0166666666666666,
+      "p75_sec": 1.2,
+      "p90_sec": 2.0166666666666666,
+      "p95_sec": 2.65,
+      "p99_sec": 4.782333333333335,
+      "max_sec": 9.433333333333334
+    },
+    "medium_close": {
+      "level": "medium_close",
+      "count": 1937,
+      "min_sec": 0.016666666666666666,
+      "mean_sec": 0.7691447255205645,
+      "p10_sec": 0.016666666666666666,
+      "p25_sec": 0.08333333333333333,
+      "median_sec": 0.48333333333333334,
+      "p70_sec": 0.9,
+      "p75_sec": 1.0333333333333334,
+      "p90_sec": 1.833333333333333,
+      "p95_sec": 2.523333333333327,
+      "p99_sec": 4.739999999999979,
+      "max_sec": 10.883333333333333
+    },
+    "medium_far": {
+      "level": "medium_far",
+      "count": 1207,
+      "min_sec": 0.016666666666666666,
+      "mean_sec": 0.7877796188898095,
+      "p10_sec": 0.016666666666666666,
+      "p25_sec": 0.016666666666666666,
+      "median_sec": 0.5833333333333334,
+      "p70_sec": 1.0,
+      "p75_sec": 1.15,
+      "p90_sec": 1.916666666666667,
+      "p95_sec": 2.6116666666666672,
+      "p99_sec": 3.85,
+      "max_sec": 7.516666666666667
+    },
+    "tight_close": {
+      "level": "tight_close",
+      "count": 2183,
+      "min_sec": 0.016666666666666666,
+      "mean_sec": 1.0152007940143533,
+      "p10_sec": 0.016666666666666666,
+      "p25_sec": 0.3333333333333333,
+      "median_sec": 0.7166666666666667,
+      "p70_sec": 1.15,
+      "p75_sec": 1.35,
+      "p90_sec": 2.15,
+      "p95_sec": 3.0816666666666683,
+      "p99_sec": 5.208999999999992,
+      "max_sec": 12.516666666666667
+    }
+  },
+  "group_classes": {
+    "close_group": {
+      "level": "close_group",
+      "count": 2770,
+      "min_sec": 0.016666666666666666,
+      "mean_sec": 1.4647292418772564,
+      "p10_sec": 0.06500000000000057,
+      "p25_sec": 0.48333333333333334,
+      "median_sec": 1.0166666666666666,
+      "p70_sec": 1.65,
+      "p75_sec": 1.8333333333333333,
+      "p90_sec": 3.183333333333333,
+      "p95_sec": 4.533333333333333,
+      "p99_sec": 8.455166666666665,
+      "max_sec": 22.566666666666666
+    },
+    "far_group": {
+      "level": "far_group",
+      "count": 1332,
+      "min_sec": 0.016666666666666666,
+      "mean_sec": 0.9618993993993994,
+      "p10_sec": 0.016666666666666666,
+      "p25_sec": 0.11666666666666667,
+      "median_sec": 0.7083333333333333,
+      "p70_sec": 1.1833333333333333,
+      "p75_sec": 1.3666666666666667,
+      "p90_sec": 2.2133333333333365,
+      "p95_sec": 2.816666666666667,
+      "p99_sec": 4.585666666666672,
+      "max_sec": 10.433333333333334
+    },
+    "medium_group": {
+      "level": "medium_group",
+      "count": 2725,
+      "min_sec": 0.016666666666666666,
+      "mean_sec": 1.3043669724770643,
+      "p10_sec": 0.016666666666666666,
+      "p25_sec": 0.25,
+      "median_sec": 0.8,
+      "p70_sec": 1.4833333333333334,
+      "p75_sec": 1.7166666666666666,
+      "p90_sec": 3.05,
+      "p95_sec": 4.316666666666666,
+      "p99_sec": 8.305999999999957,
+      "max_sec": 21.766666666666666
+    }
+  },
+  "outputs": {
+    "runs_csv": null,
+    "group_runs_csv": null,
+    "summary_json": "camera_autoshot/analysis/v31_distance_level_duration_stats_midpoint.json"
+  }
+}

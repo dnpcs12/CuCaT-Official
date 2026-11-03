@@ -1,0 +1,32 @@
+{
+ "script": "music_processing.train_keyframe_density_stagea",
+ "checkpoint": "final model/density_stagea/best_model.pt",
+ "args": {
+  "dataset_root": "music_processing/results/01_datasets/keyframe_density_stagea_dataset_dcm_demucs_no_rms_compact_dance_all_keyframes_trainval_no_c47_c105",
+  "output_root": "music_processing/results/02_models/keyframe_density_stagea_models",
+  "seed": 42,
+  "epochs": 30,
+  "batch_size": 256,
+  "positive_repeat": 3,
+  "model_type": "cnn",
+  "model_dim": 192,
+  "num_heads": 4,
+  "num_layers": 3,
+  "cnn_kernel_size": 5,
+  "cnn_dilations": "1,2,4,8",
+  "dropout": 0.1,
+  "lr": 0.001,
+  "weight_decay": 0.0001,
+  "grad_clip": 1.0,
+  "bce_weight": 1.0,
+  "smooth_l1_weight": 0.2,
+  "max_prev_cut_age_sec": 10.0,
+  "max_prev_cut_gap_sec": 10.0,
+  "selection_metric": "topk_density_capture",
+  "device": "cuda",
+  "tag": "stagea_cnn_demucs_no_rms_compact_dance_all_keyframes_trainval_no_c47_c105_e30",
+  "wandb_project": "music-keyframe-density-stagea",
+  "wandb_run_name": "",
+  "disable_wandb": true
+ }
+}

@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pipeline Debug Viewer</title>
+  <style>
+    :root {
+      --ink: #18211d;
+      --muted: #657064;
+      --paper: #f8f0df;
+      --panel: rgba(255, 251, 241, 0.92);
+      --line: #d9ccb5;
+      --grid: rgba(24, 33, 29, 0.10);
+      --accent: #c8522d;
+      --accent2: #147e72;
+      --blue: #1d72d2;
+      --pink: #dc3f7c;
+      --gold: #b87910;
+      --ok: #247346;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 5%, rgba(200, 82, 45, 0.20), transparent 28rem),
+        radial-gradient(circle at 86% 12%, rgba(20, 126, 114, 0.18), transparent 26rem),
+        linear-gradient(135deg, #fbf4e5, #eaf1e7);
+      font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+    }
+    main {
+      width: min(1560px, calc(100vw - 28px));
+      margin: 20px auto 48px;
+    }
+    h1 {
+      margin: 0;
+      letter-spacing: -0.045em;
+      font-size: clamp(32px, 4vw, 58px);
+      line-height: 0.95;
+    }
+    h2 {
+      margin: 0 0 12px;
+      letter-spacing: -0.035em;
+      font-size: 22px;
+    }
+    .subtitle {
+      color: var(--muted);
+      line-height: 1.55;
+      max-width: 980px;
+      margin-top: 8px;
+    }
+    .card {
+      border: 1px solid rgba(24, 33, 29, 0.12);
+      border-radius: 24px;
+      background: var(--panel);
+      box-shadow: 0 16px 42px rgba(34, 31, 26, 0.10);
+      padding: 16px;
+      backdrop-filter: blur(10px);
+      margin-top: 16px;
+    }
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(260px, 1fr) auto auto;
+      gap: 10px;
+      align-items: end;
+    }
+    label {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    input, button {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.60);
+      color: var(--ink);
+      padding: 10px 12px;
+      font: inherit;
+      min-height: 42px;
+    }
+    button {
+      cursor: pointer;
+      background: var(--ink);
+      color: #fffaf0;
+      border-color: var(--ink);
+      font-weight: 850;
+    }
+    button.secondary {
+      color: var(--ink);
+      background: transparent;
+      border-color: var(--line);
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(360px, 0.85fr) minmax(0, 1.4fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .video-card {
+      position: sticky;
+      top: 14px;
+    }
+    video {
+      width: 100%;
+      max-height: 58vh;
+      border-radius: 16px;
+      background: #111;
+      display: block;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 9px;
+      margin-top: 12px;
+    }
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.38);
+      min-width: 0;
+    }
+    .stat b {
+      display: block;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+      overflow-wrap: anywhere;
+    }
+    .stat span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .links {
+      display: grid;
+      gap: 7px;
+      margin-top: 12px;
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+    a {
+      color: var(--accent2);
+      font-weight: 850;
+      text-decoration: none;
+    }
+    a:hover { text-decoration: underline; }
+    .section-note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      margin-top: -4px;
+      margin-bottom: 12px;
+    }
+    .timeline-stack {
+      display: grid;
+      gap: 8px;
+    }
+    .timeline-row {
+      display: grid;
+      grid-template-columns: 170px minmax(0, 1fr);
+      border: 1px solid rgba(24, 33, 29, 0.10);
+      border-radius: 14px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.32);
+    }
+    .timeline-label {
+      padding: 9px 10px;
+      border-right: 1px solid rgba(24, 33, 29, 0.10);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.2;
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+    }
+    .timeline-canvas {
+      width: 100%;
+      height: 44px;
+      display: block;
+    }
+    .timeline-canvas.tall { height: 72px; }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 10px;
+    }
+    .legend i {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 5px;
+      vertical-align: -1px;
+    }
+    .audio-list {
+      display: grid;
+      gap: 10px;
+    }
+    audio { width: 100%; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(20, 126, 114, 0.11);
+      color: var(--accent2);
+      font-size: 12px;
+      font-weight: 850;
+    }
+    .status {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+    .status.error { color: #a12d2d; }
+    details {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.35);
+      margin-top: 10px;
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 850;
+    }
+    pre {
+      overflow: auto;
+      max-height: 360px;
+      background: rgba(24, 33, 29, 0.06);
+      border-radius: 12px;
+      padding: 10px;
+      font-size: 12px;
+      line-height: 1.42;
+    }
+    .playhead {
+      color: var(--blue);
+      font-weight: 900;
+    }
+    @media (max-width: 980px) {
+      .layout, .toolbar { grid-template-columns: 1fr; }
+      .video-card { position: relative; top: auto; }
+      .timeline-row { grid-template-columns: 120px minmax(0, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Pipeline Debug Viewer</h1>
+    <div class="subtitle">
+      Inspect a CuCaT run step by step: waveform and Demucs stems, beats and downbeats,
+      selected cuts and transition frames, the shot plan before and after CP-SAT, and the rendered MP4.
+    </div>
+
+    <section class="card">
+      <div class="toolbar">
+        <label>
+          Summary JSON or Output Folder
+          <input id="sourceInput" placeholder="/music_processing/results/web_demo/outputs/<song>/summary.json" />
+        </label>
+        <button id="loadBtn">Load Debug View</button>
+        <button id="reloadBtn" class="secondary">Reload</button>
+      </div>
+      <div id="status" class="status">Pass ?summary=/music_processing/results/web_demo/outputs/.../summary.json or ?output=/music_processing/results/web_demo/outputs/...</div>
+    </section>
+
+    <section class="layout">
+      <aside class="card video-card">
+        <h2>Final Result</h2>
+        <video id="video" controls playsinline></video>
+        <div class="meta-grid" id="stats"></div>
+        <div class="links" id="links"></div>
+        <details>
+          <summary>Loaded files</summary>
+          <pre id="loadedFiles"></pre>
+        </details>
+      </aside>
+
+      <div>
+        <section class="card">
+          <h2>1. Music Decomposition</h2>
+          <div class="section-note">Original waveform and Demucs stems. Beat, bar, and downbeat markers are overlaid on the waveform rows.</div>
+          <div id="audioRows" class="timeline-stack"></div>
+          <div id="audioPlayers" class="audio-list"></div>
+          <div class="legend">
+            <span><i style="background:#d49c2f"></i>beat</span>
+            <span><i style="background:#147e72"></i>bar/downbeat</span>
+            <span><i style="background:#1d72d2"></i>playhead</span>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>2. Timing Model Outputs</h2>
+          <div class="section-note">Cut and transition probabilities, keyframe density, and the selected cuts and transition frames used by the shot-plan model.</div>
+          <div id="timingRows" class="timeline-stack"></div>
+          <div class="legend">
+            <span><i style="background:#dc3f7c"></i>probability</span>
+            <span><i style="background:#c8522d"></i>selected cut</span>
+            <span><i style="background:#147e72"></i>selected transition frame</span>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>3. Shot Plan Prediction</h2>
+          <div class="section-note">Raw shot-plan labels before CP-SAT optimization, rendered as field-wise categorical time tracks.</div>
+          <div id="rawShotRows" class="timeline-stack"></div>
+        </section>
+
+        <section class="card">
+          <h2>4. CP-SAT Optimized Shot Plan</h2>
+          <div class="section-note">Optimized shot-plan labels. The changed row marks frames whose label tuple changed after CP-SAT.</div>
+          <div id="optShotRows" class="timeline-stack"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    if (location.protocol === "file:") {
+      const serverUrl = `http://127.0.0.1:8785/music_processing/unseen_mmd_debug_viewer.html${location.search || ""}${location.hash || ""}`;
+      document.body.innerHTML = `
+        <main>
+          <section class="card">
+            <h1>Opening Server Page</h1>
+            <p class="subtitle">This debug viewer needs the local pipeline server to load MP4/audio/JSON artifacts. Redirecting to <a href="${serverUrl}">${serverUrl}</a>...</p>
+          </section>
+        </main>
+      `;
+      location.replace(serverUrl);
+    }
+
+    // Absolute repository path, read from the server, used to turn file paths in summary.json into URLs.
+    let REPO_PREFIX = "";
+
+    async function ensureRepoPrefix() {
+      if (REPO_PREFIX) return;
+      const response = await fetch("/api/unseen/config", { cache: "no-store" });
+      if (!response.ok) return;
+      const config = await response.json();
+      REPO_PREFIX = String(config.repo_root || "").replaceAll("\\", "/");
+    }
+    const SHOT_FIELDS = ["target_anchor", "yaw", "pitch", "composition", "roll", "distance", "fov", "stage"];
+    const CATEGORICAL_COLORS = [
+      "#147e72", "#c8522d", "#1d72d2", "#b87910", "#8a54bf", "#247346",
+      "#dc3f7c", "#6a7a21", "#b64545", "#4f8198", "#9a6b2f", "#354f8a"
+    ];
+    const state = {
+      summary: null,
+      preprocess: null,
+      finalTiming: null,
+      rawShot: null,
+      optShot: null,
+      duration: 0,
+      fps: 30,
+      canvases: [],
+      drawers: [],
+      audioContext: null,
+      status: "idle",
+    };
+
+    const els = {
+      sourceInput: document.getElementById("sourceInput"),
+      loadBtn: document.getElementById("loadBtn"),
+      reloadBtn: document.getElementById("reloadBtn"),
+      status: document.getElementById("status"),
+      video: document.getElementById("video"),
+      stats: document.getElementById("stats"),
+      links: document.getElementById("links"),
+      loadedFiles: document.getElementById("loadedFiles"),
+      audioRows: document.getElementById("audioRows"),
+      audioPlayers: document.getElementById("audioPlayers"),
+      timingRows: document.getElementById("timingRows"),
+      rawShotRows: document.getElementById("rawShotRows"),
+      optShotRows: document.getElementById("optShotRows"),
+    };
+
+    function setStatus(message, isError = false) {
+      els.status.textContent = message;
+      els.status.classList.toggle("error", Boolean(isError));
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+      }[ch]));
+    }
+
+    function pathToUrl(path) {
+      if (!path) return "";
+      let text = String(path).trim().replaceAll("\\", "/");
+      if (!text) return "";
+      if (/^https?:\/\//i.test(text)) return text;
+      if (text.startsWith("/")) return encodeURI(text);
+      const lower = text.toLowerCase();
+      const repo = REPO_PREFIX.toLowerCase();
+      if (repo && lower.startsWith(repo)) {
+        const relative = text.slice(REPO_PREFIX.length);
+        return "/" + relative.split("/").map(encodeURIComponent).join("/");
+      }
+      return encodeURI(text);
+    }
+
+    function outputUrlFromSummaryUrl(summaryUrl) {
+      const clean = String(summaryUrl || "").split("?")[0];
+      return clean.replace(/\/summary\.json$/i, "");
+    }
+
+    function resolveSummaryUrl() {
+      const params = new URLSearchParams(location.search);
+      const summary = params.get("summary");
+      const output = params.get("output");
+      const manual = els.sourceInput.value.trim();
+      const source = manual || summary || output || "";
+      if (!source) return "";
+      let url = pathToUrl(source);
+      if (!/summary\.json$/i.test(url)) {
+        url = url.replace(/\/+$/, "") + "/summary.json";
+      }
+      return url;
+    }
+
+    async function fetchJson(url, optional = false) {
+      if (!url) return null;
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) {
+        if (optional) return null;
+        throw new Error(`Failed to fetch ${url}: ${response.status}`);
+      }
+      return response.json();
+    }
+
+    async function fetchArrayBuffer(url, optional = false) {
+      if (!url) return null;
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) {
+        if (optional) return null;
+        throw new Error(`Failed to fetch ${url}: ${response.status}`);
+      }
+      return response.arrayBuffer();
+    }
+
+    function stat(label, value) {
+      return `<div class="stat"><b>${escapeHtml(value)}</b><span>${escapeHtml(label)}</span></div>`;
+    }
+
+    function firstSong(finalTiming) {
+      return finalTiming?.songs?.[0] || {};
+    }
+
+    function frameToTime(frame) {
+      return Number(frame || 0) / Math.max(1e-6, state.fps || 30);
+    }
+
+    function eventTime(event) {
+      if (event?.time_sec !== undefined) return Number(event.time_sec);
+      if (event?.frame !== undefined) return frameToTime(event.frame);
+      return 0;
+    }
+
+    function numericArrayMinMax(values) {
+      if (!values?.length) return [0, 1];
+      let min = Infinity;
+      let max = -Infinity;
+      for (const value of values) {
+        const x = Number(value);
+        if (!Number.isFinite(x)) continue;
+        min = Math.min(min, x);
+        max = Math.max(max, x);
+      }
+      if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) return [0, 1];
+      return [min, max];
+    }
+
+    function parseNpy(buffer) {
+      if (!buffer) return null;
+      const bytes = new Uint8Array(buffer);
+      if (bytes[0] !== 0x93 || String.fromCharCode(...bytes.slice(1, 6)) !== "NUMPY") {
+        throw new Error("Invalid .npy file");
+      }
+      const major = bytes[6];
+      const view = new DataView(buffer);
+      const headerLen = major <= 1 ? view.getUint16(8, true) : view.getUint32(8, true);
+      const offset = major <= 1 ? 10 : 12;
+      const header = new TextDecoder("latin1").decode(bytes.slice(offset, offset + headerLen));
+      const descr = (header.match(/'descr':\s*'([^']+)'/) || header.match(/"descr":\s*"([^"]+)"/) || [])[1] || "";
+      const shapeText = (header.match(/'shape':\s*\(([^)]*)\)/) || header.match(/"shape":\s*\[([^\]]*)\]/) || [])[1] || "";
+      const shape = shapeText.split(",").map(x => Number(x.trim())).filter(Number.isFinite);
+      const dataOffset = offset + headerLen;
+      let values;
+      if (descr.endsWith("f4")) values = new Float32Array(buffer, dataOffset);
+      else if (descr.endsWith("f8")) values = Float64Array.from(new Float64Array(buffer, dataOffset));
+      else if (descr.endsWith("i4")) values = Float32Array.from(new Int32Array(buffer, dataOffset));
+      else throw new Error(`Unsupported npy dtype: ${descr}`);
+      return { values, shape, dtype: descr };
+    }
+
+    function createTimelineRow(parent, label, heightClass = "") {
+      const row = document.createElement("div");
+      row.className = "timeline-row";
+      row.innerHTML = `<div class="timeline-label">${escapeHtml(label)}</div><canvas class="timeline-canvas ${heightClass}"></canvas>`;
+      parent.appendChild(row);
+      const canvas = row.querySelector("canvas");
+      state.canvases.push(canvas);
+      return canvas;
+    }
+
+    function registerDrawer(drawer) {
+      state.drawers.push(drawer);
+      drawer();
+    }
+
+    function prepareCanvas(canvas) {
+      const ratio = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.max(320, Math.floor(rect.width));
+      const height = Math.max(32, Math.floor(rect.height));
+      canvas.width = Math.floor(width * ratio);
+      canvas.height = Math.floor(height * ratio);
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      return { ctx, width, height };
+    }
+
+    function xForTime(time, width) {
+      return Math.max(0, Math.min(width, Number(time || 0) / Math.max(0.001, state.duration) * width));
+    }
+
+    function drawBase(ctx, width, height) {
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "rgba(255,255,255,0.24)";
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--grid");
+      ctx.lineWidth = 1;
+      const step = state.duration <= 35 ? 1 : state.duration <= 90 ? 5 : 10;
+      for (let t = 0; t <= state.duration + 1e-6; t += step) {
+        const x = xForTime(t, width);
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+    }
+
+    function drawPlayhead(ctx, width, height) {
+      const x = xForTime(els.video.currentTime || 0, width);
+      ctx.strokeStyle = "#1d72d2";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
+    }
+
+    function drawMarkers(ctx, width, height, events, color, options = {}) {
+      const lineWidth = options.lineWidth || 2;
+      const top = options.top ?? 4;
+      const bottom = options.bottom ?? height - 4;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      for (const event of events || []) {
+        const x = xForTime(eventTime(event), width);
+        ctx.beginPath();
+        ctx.moveTo(x, top);
+        ctx.lineTo(x, bottom);
+        ctx.stroke();
+      }
+    }
+
+    function drawWaveform(canvas, samples, overlay = {}) {
+      const { ctx, width, height } = prepareCanvas(canvas);
+      drawBase(ctx, width, height);
+      const mid = height / 2;
+      const amp = height * 0.42;
+      ctx.strokeStyle = overlay.color || "#24483d";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      const channel = samples || new Float32Array();
+      if (channel.length) {
+        const samplesPerPixel = Math.max(1, Math.floor(channel.length / width));
+        for (let x = 0; x < width; x++) {
+          const start = x * samplesPerPixel;
+          const end = Math.min(channel.length, start + samplesPerPixel);
+          let min = 0;
+          let max = 0;
+          for (let i = start; i < end; i++) {
+            const value = channel[i] || 0;
+            if (value < min) min = value;
+            if (value > max) max = value;
+          }
+          ctx.moveTo(x, mid + min * amp);
+          ctx.lineTo(x, mid + max * amp);
+        }
+      }
+      ctx.stroke();
+      drawMarkers(ctx, width, height, overlay.beats, "#d49c2f", { lineWidth: 1, top: 0, bottom: height });
+      drawMarkers(ctx, width, height, overlay.downbeats, "#147e72", { lineWidth: 2, top: 0, bottom: height });
+      drawPlayhead(ctx, width, height);
+    }
+
+    function drawLine(canvas, values, color) {
+      const { ctx, width, height } = prepareCanvas(canvas);
+      drawBase(ctx, width, height);
+      const [min, max] = numericArrayMinMax(values);
+      const span = Math.max(1e-6, max - min);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      for (let i = 0; i < values.length; i++) {
+        const t = frameToTime(i);
+        const x = xForTime(t, width);
+        const y = height - 4 - ((Number(values[i]) - min) / span) * (height - 8);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      drawPlayhead(ctx, width, height);
+    }
+
+    function colorForCategory(value) {
+      const text = String(value ?? "unknown");
+      let hash = 0;
+      for (let i = 0; i < text.length; i++) hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+      return CATEGORICAL_COLORS[hash % CATEGORICAL_COLORS.length];
+    }
+
+    function drawCategorical(canvas, keyframes, field) {
+      const { ctx, width, height } = prepareCanvas(canvas);
+      drawBase(ctx, width, height);
+      const frames = Array.isArray(keyframes) ? [...keyframes].sort((a, b) => Number(a.frame || 0) - Number(b.frame || 0)) : [];
+      if (frames.length) {
+        for (let i = 0; i < frames.length; i++) {
+          const current = frames[i];
+          const next = frames[i + 1];
+          const start = xForTime(frameToTime(current.frame), width);
+          const endTime = next ? frameToTime(next.frame) : state.duration;
+          const end = Math.max(start + 1, xForTime(endTime, width));
+          ctx.fillStyle = colorForCategory(current[field]);
+          ctx.globalAlpha = field === "stage" && current[field] === "cut" ? 0.95 : 0.72;
+          ctx.fillRect(start, 6, end - start, height - 12);
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "rgba(24,33,29,0.78)";
+        ctx.font = "11px Segoe UI, sans-serif";
+        let lastX = -999;
+        for (const keyframe of frames) {
+          const x = xForTime(frameToTime(keyframe.frame), width);
+          if (x - lastX < 44) continue;
+          const text = String(keyframe[field] ?? "");
+          ctx.fillText(text.slice(0, 18), x + 3, height - 9);
+          lastX = x;
+        }
+      }
+      drawPlayhead(ctx, width, height);
+    }
+
+    function drawChangeMarkers(canvas, raw, opt) {
+      const { ctx, width, height } = prepareCanvas(canvas);
+      drawBase(ctx, width, height);
+      const rawByFrame = new Map((raw || []).map(k => [Number(k.frame), k]));
+      const changes = [];
+      for (const keyframe of opt || []) {
+        const before = rawByFrame.get(Number(keyframe.frame));
+        if (!before) continue;
+        const changed = SHOT_FIELDS.some(field => String(before[field] ?? "") !== String(keyframe[field] ?? ""));
+        if (changed) changes.push(keyframe);
+      }
+      drawMarkers(ctx, width, height, changes, "#c8522d", { lineWidth: 2, top: 4, bottom: height - 4 });
+      ctx.fillStyle = "rgba(24,33,29,0.72)";
+      ctx.font = "12px Segoe UI, sans-serif";
+      ctx.fillText(`${changes.length} changed keyframes`, 8, 16);
+      drawPlayhead(ctx, width, height);
+    }
+
+    async function decodeAudio(url) {
+      if (!url) return null;
+      if (!state.audioContext) state.audioContext = new AudioContext();
+      const buffer = await fetchArrayBuffer(url, true);
+      if (!buffer) return null;
+      return state.audioContext.decodeAudioData(buffer.slice(0));
+    }
+
+    async function renderAudioRows(files, beats, downbeats) {
+      els.audioRows.innerHTML = "";
+      els.audioPlayers.innerHTML = "";
+      const rows = [];
+      for (const file of files) {
+        if (!file.url) continue;
+        const canvas = createTimelineRow(els.audioRows, file.label, "tall");
+        rows.push({ ...file, canvas });
+        const player = document.createElement("div");
+        player.innerHTML = `<span class="pill">${escapeHtml(file.label)}</span><audio controls src="${file.url}"></audio>`;
+        els.audioPlayers.appendChild(player);
+      }
+      await Promise.all(rows.map(async row => {
+        try {
+          const audio = await decodeAudio(row.url);
+          const channel = audio ? audio.getChannelData(0) : null;
+          row.samples = channel;
+          registerDrawer(() => drawWaveform(row.canvas, channel, { beats, downbeats, color: row.color }));
+        } catch (error) {
+          console.warn("audio draw failed", row.label, error);
+          registerDrawer(() => drawWaveform(row.canvas, null, { beats, downbeats, color: row.color }));
+        }
+      }));
+    }
+
+    async function renderTimingRows(outputUrl, finalTiming) {
+      els.timingRows.innerHTML = "";
+      const song = firstSong(finalTiming);
+      const cutProbCanvas = createTimelineRow(els.timingRows, "cut probability");
+      const keyProbCanvas = createTimelineRow(els.timingRows, "transition probability");
+      const densityCanvas = createTimelineRow(els.timingRows, "keyframe density");
+      const selectedCanvas = createTimelineRow(els.timingRows, "selected cuts / transitions", "tall");
+      const [cutNpy, keyNpy, densityNpy] = await Promise.all([
+        fetchArrayBuffer(`${outputUrl}/cut_probabilities.npy`, true),
+        fetchArrayBuffer(`${outputUrl}/stage2_keyframe_probabilities.npy`, true),
+        fetchArrayBuffer(`${outputUrl}/stagea_density.npy`, true),
+      ]);
+      let cutValues = [];
+      let keyValues = [];
+      let densityValues = [];
+      try { cutValues = parseNpy(cutNpy)?.values || []; } catch { cutValues = []; }
+      try { keyValues = parseNpy(keyNpy)?.values || []; } catch { keyValues = []; }
+      try { densityValues = parseNpy(densityNpy)?.values || []; } catch { densityValues = []; }
+      registerDrawer(() => drawLine(cutProbCanvas, cutValues, "#dc3f7c"));
+      registerDrawer(() => drawLine(keyProbCanvas, keyValues, "#a34db6"));
+      registerDrawer(() => drawLine(densityCanvas, densityValues, "#147e72"));
+
+      registerDrawer(() => {
+        const { ctx, width, height } = prepareCanvas(selectedCanvas);
+        drawBase(ctx, width, height);
+        drawMarkers(ctx, width, height, song.selected_cuts || [], "#c8522d", { lineWidth: 2, top: 4, bottom: height - 4 });
+        drawMarkers(ctx, width, height, song.selected_keyframes || [], "#147e72", { lineWidth: 2, top: height * 0.48, bottom: height - 4 });
+        drawPlayhead(ctx, width, height);
+      });
+    }
+
+    function renderShotRows(container, shot, prefix) {
+      container.innerHTML = "";
+      const keyframes = shot?.keyframes || [];
+      for (const field of SHOT_FIELDS) {
+        const canvas = createTimelineRow(container, `${prefix} ${field}`);
+        registerDrawer(() => drawCategorical(canvas, keyframes, field));
+      }
+    }
+
+    function renderOptimizedRows(rawShot, optShot) {
+      els.optShotRows.innerHTML = "";
+      const changeCanvas = createTimelineRow(els.optShotRows, "CP-SAT changed");
+      registerDrawer(() => drawChangeMarkers(changeCanvas, rawShot?.keyframes || [], optShot?.keyframes || []));
+      const keyframes = optShot?.keyframes || [];
+      for (const field of SHOT_FIELDS) {
+        const canvas = createTimelineRow(els.optShotRows, `opt ${field}`);
+        registerDrawer(() => drawCategorical(canvas, keyframes, field));
+      }
+    }
+
+    function renderStats(summary, finalTiming, preprocess) {
+      const song = firstSong(finalTiming);
+      const shot = summary.shotplan || {};
+      const madmom = preprocess?.madmom || {};
+      els.stats.innerHTML = [
+        stat("song", summary.song_id || song.id || "unknown"),
+        stat("duration", `${Number(state.duration || 0).toFixed(2)}s`),
+        stat("frames / fps", `${song.frame_count || summary.num_frames || "?"} / ${state.fps}`),
+        stat("cuts", song.selected_cuts?.length ?? summary.selected_cut_count ?? "?"),
+        stat("transition frames", song.selected_keyframes?.length ?? summary.selected_noncut_keyframe_count ?? "?"),
+        stat("beats / downbeats", `${madmom.beat_count ?? "?"} / ${madmom.downbeat_count ?? "?"}`),
+        stat("optimization", shot.optimization_status || "n/a"),
+        stat("shot keys", shot.keyframe_count || state.optShot?.keyframes?.length || state.rawShot?.keyframes?.length || "?"),
+      ].join("");
+    }
+
+    function renderLinks(files) {
+      els.links.innerHTML = files
+        .filter(file => file.url)
+        .map(file => `<a target="_blank" href="${file.url}">${escapeHtml(file.label)}</a>`)
+        .join("");
+      els.loadedFiles.textContent = JSON.stringify(files, null, 2);
+    }
+
+    function redrawAll() {
+      for (const drawer of state.drawers) drawer();
+    }
+
+    async function loadDebugView() {
+      try {
+        setStatus("Loading debug artifacts...");
+        await ensureRepoPrefix();
+        state.canvases = [];
+        state.drawers = [];
+        const summaryUrl = resolveSummaryUrl();
+        if (!summaryUrl) throw new Error("No summary/output path provided.");
+        els.sourceInput.value = summaryUrl;
+        const outputUrl = outputUrlFromSummaryUrl(summaryUrl);
+        const summary = await fetchJson(summaryUrl);
+        const preprocessUrl = `${outputUrl}/preprocess_summary.json`;
+        const finalTimingUrl = pathToUrl(summary.final_cut_key_timings) || `${outputUrl}/final_cut_key_timings.json`;
+        const rawShotUrl = pathToUrl(summary.shotplan?.shotplan_json || summary.shot_plan_json);
+        const optShotUrl = pathToUrl(summary.shotplan?.optimization_json || summary.shotplan?.final_shotplan_json || summary.shot_plan_json);
+        const videoUrl = pathToUrl(summary.preview_video || summary.shotplan?.preview_video);
+
+        const [preprocess, finalTiming, rawShot, optShot] = await Promise.all([
+          fetchJson(preprocessUrl, true),
+          fetchJson(finalTimingUrl),
+          fetchJson(rawShotUrl, true),
+          fetchJson(optShotUrl, true),
+        ]);
+        state.summary = summary;
+        state.preprocess = preprocess;
+        state.finalTiming = finalTiming;
+        state.rawShot = rawShot;
+        state.optShot = optShot || rawShot;
+        const song = firstSong(finalTiming);
+        state.fps = Number(song.fps || finalTiming?.input?.fps || summary.fps || summary.shotplan?.sample_fps || 30);
+        state.duration = Number(song.video_duration_sec || summary.duration_sec || (song.frame_count ? song.frame_count / state.fps : 0) || 1);
+
+        const stemFiles = preprocess?.demucs?.stem_files || {};
+        const wavUrl = pathToUrl(finalTiming?.input?.wav_path || preprocess?.demucs?.audio_path);
+        const audioFiles = [
+          { label: "original mix", url: wavUrl, color: "#24483d" },
+          { label: "Demucs vocals", url: pathToUrl(stemFiles.vocals), color: "#8a54bf" },
+          { label: "Demucs bass", url: pathToUrl(stemFiles.bass), color: "#1d72d2" },
+          { label: "Demucs drums", url: pathToUrl(stemFiles.drums), color: "#c8522d" },
+          { label: "Demucs other", url: pathToUrl(stemFiles.other), color: "#147e72" },
+        ];
+        state.lastLoadArgs = { outputUrl, audioFiles };
+
+        if (videoUrl) {
+          els.video.src = videoUrl;
+        } else {
+          els.video.removeAttribute("src");
+        }
+        const madmom = preprocess?.madmom || {};
+        await renderAudioRows(audioFiles, madmom.beats || [], madmom.downbeats || []);
+        await renderTimingRows(outputUrl, finalTiming);
+        renderShotRows(els.rawShotRows, rawShot, "raw");
+        renderOptimizedRows(rawShot, state.optShot);
+        renderStats(summary, finalTiming, preprocess);
+        renderLinks([
+          { label: "summary.json", url: summaryUrl },
+          { label: "preprocess_summary.json", url: preprocessUrl },
+          { label: "final_cut_key_timings.json", url: finalTimingUrl },
+          { label: "shot-plan editor", url: `/music_processing/shotplan_edit_viewer.html?summary=${encodeURIComponent(summaryUrl)}` },
+          { label: "raw shot plan", url: rawShotUrl },
+          { label: "optimized shot plan", url: optShotUrl },
+          { label: "final MP4", url: videoUrl },
+        ]);
+        setStatus(`Loaded ${summary.song_id || song.id || "pipeline output"}. Use the video controls to scrub all tracks together.`);
+      } catch (error) {
+        console.error(error);
+        setStatus(String(error.stack || error), true);
+      }
+    }
+
+    function tickPlayhead() {
+      if (!state.summary) return;
+      const canvases = [...state.canvases];
+      // Redraw at a light cadence by re-rendering the simpler canvas layers.
+      // This avoids storing per-canvas drawing closures in the page state.
+      window.requestAnimationFrame(() => {});
+    }
+
+    let playheadTimer = null;
+    function startPlayheadTimer() {
+      if (playheadTimer) return;
+      playheadTimer = window.setInterval(() => {
+        if (!state.summary) return;
+        // Re-rendering all sections is acceptable here because the debug viewer
+        // handles one clip at a time and keeps the canvases intentionally lean.
+        redrawAll();
+      }, 250);
+    }
+
+    els.loadBtn.addEventListener("click", loadDebugView);
+    els.reloadBtn.addEventListener("click", loadDebugView);
+    els.video.addEventListener("play", startPlayheadTimer);
+    els.video.addEventListener("pause", redrawAll);
+    els.video.addEventListener("seeked", redrawAll);
+    window.addEventListener("resize", () => {
+      if (state.resizeTimer) clearTimeout(state.resizeTimer);
+      state.resizeTimer = setTimeout(redrawAll, 180);
+    });
+
+    const params = new URLSearchParams(location.search);
+    if (params.get("summary") || params.get("output")) {
+      els.sourceInput.value = params.get("summary") || params.get("output");
+      loadDebugView();
+    }
+  </script>
+</body>
+</html>

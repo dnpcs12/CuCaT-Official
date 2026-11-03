@@ -1,0 +1,1206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CuCaT Demo</title>
+  <style>
+    :root {
+      --ink: #18211d;
+      --muted: #667064;
+      --paper: #f6eedf;
+      --panel: rgba(255, 250, 240, 0.88);
+      --line: #dacdb7;
+      --accent: #c8522d;
+      --accent2: #147e72;
+      --danger: #b33636;
+      --ok: #247346;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 10%, rgba(200, 82, 45, 0.22), transparent 28rem),
+        radial-gradient(circle at 86% 16%, rgba(20, 126, 114, 0.18), transparent 24rem),
+        linear-gradient(135deg, #fbf4e5 0%, #eaf1e7 100%);
+      font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+    }
+    main {
+      width: min(1320px, calc(100vw - 28px));
+      margin: 22px auto 44px;
+    }
+    h1 {
+      margin: 0;
+      letter-spacing: -0.045em;
+      font-size: clamp(30px, 4vw, 56px);
+      line-height: 0.95;
+    }
+    .subtitle {
+      margin-top: 8px;
+      color: var(--muted);
+      max-width: 900px;
+      line-height: 1.55;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+      gap: 16px;
+      align-items: start;
+      margin-top: 18px;
+    }
+    .card {
+      border: 1px solid rgba(24, 33, 29, 0.12);
+      border-radius: 24px;
+      background: var(--panel);
+      box-shadow: 0 16px 42px rgba(34, 31, 26, 0.10);
+      padding: 17px;
+      backdrop-filter: blur(10px);
+    }
+    .card h2 {
+      margin: 0 0 12px;
+      letter-spacing: -0.035em;
+      font-size: 22px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    label {
+      display: grid;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    input, select, button {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.55);
+      color: var(--ink);
+      padding: 10px 12px;
+      font: inherit;
+      font-size: 14px;
+      text-transform: none;
+      letter-spacing: normal;
+    }
+    input[type="file"] { padding: 8px; }
+    .drop-zone {
+      position: relative;
+      border: 1.5px dashed rgba(20, 126, 114, 0.42);
+      border-radius: 18px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.34);
+      transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+    }
+    .drop-zone input[type="file"] {
+      background: rgba(255, 255, 255, 0.66);
+    }
+    .drop-zone .drop-copy {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing: normal;
+      text-transform: none;
+    }
+    .drop-zone .file-name {
+      color: var(--accent2);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: normal;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-transform: none;
+      white-space: nowrap;
+    }
+    .drop-zone.dragging,
+    .drop-zone.has-file {
+      border-color: var(--accent2);
+      background: rgba(20, 126, 114, 0.10);
+    }
+    .drop-zone.dragging {
+      transform: translateY(-1px);
+    }
+    .wide { grid-column: 1 / -1; }
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: normal;
+      text-transform: none;
+    }
+    .check input { width: auto; }
+    button {
+      cursor: pointer;
+      background: var(--ink);
+      border-color: var(--ink);
+      color: #fffaf0;
+      font-weight: 800;
+    }
+    button.secondary {
+      background: transparent;
+      color: var(--ink);
+      border-color: var(--line);
+    }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      margin-top: 8px;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 7px 11px;
+      background: rgba(24, 33, 29, 0.08);
+      color: var(--ink);
+      font-weight: 800;
+      font-size: 13px;
+    }
+    .status.running { color: var(--accent); background: rgba(200, 82, 45, 0.12); }
+    .status.completed { color: var(--ok); background: rgba(36, 115, 70, 0.13); }
+    .status.failed { color: var(--danger); background: rgba(179, 54, 54, 0.13); }
+    .progress-panel {
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 12px;
+      background:
+        linear-gradient(135deg, rgba(36, 115, 70, 0.10), rgba(255, 255, 255, 0.36)),
+        rgba(255, 255, 255, 0.42);
+    }
+    .progress-top, .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+    .progress-top b {
+      font-size: 14px;
+      letter-spacing: -0.01em;
+    }
+    .progress-top span, .progress-meta {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .progress-track {
+      height: 12px;
+      margin: 10px 0 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(24, 33, 29, 0.10);
+      box-shadow: inset 0 0 0 1px rgba(24, 33, 29, 0.06);
+    }
+    .progress-track i {
+      display: block;
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent2), var(--ok));
+      transition: width 0.5s ease;
+    }
+    .progress-panel.failed .progress-track i {
+      background: linear-gradient(90deg, var(--accent), var(--danger));
+    }
+    .progress-step {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .links {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      min-width: 0;
+      overflow: hidden;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .links span,
+    .links a,
+    .links code {
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      white-space: normal;
+    }
+    .links code {
+      display: inline;
+      font-size: 12px;
+    }
+    a {
+      color: var(--accent2);
+      font-weight: 800;
+      text-decoration: none;
+    }
+    a:hover { text-decoration: underline; }
+    pre {
+      margin: 12px 0 0;
+      min-height: 280px;
+      max-height: 56vh;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 12px;
+      background: #171d19;
+      color: #e9f3ea;
+      font: 12px/1.5 Consolas, "Cascadia Mono", monospace;
+      white-space: pre-wrap;
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.46);
+    }
+    .stat b { display: block; font-size: 18px; }
+    .stat small { color: var(--muted); }
+    .jobs {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .stage-list, .artifact-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .stage-item, .artifact-item {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.42);
+    }
+    .stage-item {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 9px;
+      align-items: start;
+    }
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      margin-top: 5px;
+      background: rgba(24, 33, 29, 0.22);
+    }
+    .dot.running { background: var(--accent); box-shadow: 0 0 0 4px rgba(200, 82, 45, 0.12); }
+    .dot.completed, .dot.ready { background: var(--ok); box-shadow: 0 0 0 4px rgba(36, 115, 70, 0.12); }
+    .dot.failed, .dot.missing { background: var(--danger); box-shadow: 0 0 0 4px rgba(179, 54, 54, 0.12); }
+    .dot.planned, .dot.pending, .dot.skipped { background: #9f927e; }
+    .stage-item b, .artifact-item b { display: block; font-size: 14px; }
+    .stage-item small, .artifact-item small { color: var(--muted); line-height: 1.4; }
+    .timing-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .timing-details {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.42);
+    }
+    .timing-details summary {
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-weight: 900;
+      list-style: none;
+    }
+    .timing-details summary::-webkit-details-marker { display: none; }
+    .timing-details summary::after {
+      content: "Show details";
+      color: var(--accent2);
+      flex: 0 0 auto;
+      font-size: 12px;
+    }
+    .timing-details[open] summary::after { content: "Hide details"; }
+    .timing-item {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.42);
+    }
+    .timing-item header {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .timing-item small {
+      color: var(--muted);
+    }
+    .timing-bar {
+      height: 7px;
+      margin-top: 7px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(24, 33, 29, 0.08);
+    }
+    .timing-bar i {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+    }
+    .artifact-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .artifact-status {
+      border-radius: 999px;
+      padding: 4px 8px;
+      background: rgba(24, 33, 29, 0.08);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .preview-panel {
+      display: none;
+      margin-top: 12px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      overflow: hidden;
+      background: rgba(24, 33, 29, 0.08);
+    }
+    .preview-panel.show { display: block; }
+    .preview-panel video {
+      display: block;
+      width: 100%;
+      max-height: 44vh;
+      background: #111;
+    }
+    .preview-caption {
+      padding: 9px 11px;
+      color: var(--muted);
+      font-size: 12px;
+      word-break: break-all;
+    }
+    .future-panel {
+      border: 1px dashed rgba(24, 33, 29, 0.22);
+      border-radius: 18px;
+      padding: 12px;
+      background: rgba(20, 126, 114, 0.07);
+    }
+    .future-panel h3 {
+      margin: 0 0 7px;
+      font-size: 16px;
+      letter-spacing: -0.02em;
+    }
+    .option-heading {
+      grid-column: 1 / -1;
+      margin: 6px 0 -2px;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    details.advanced {
+      grid-column: 1 / -1;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.32);
+      padding: 12px;
+    }
+    details.advanced > summary {
+      cursor: pointer;
+      color: var(--ink);
+      font-weight: 900;
+      letter-spacing: -0.01em;
+      list-style: none;
+    }
+    details.advanced > summary::-webkit-details-marker { display: none; }
+    details.advanced > summary::after {
+      content: "Show";
+      float: right;
+      color: var(--accent2);
+      font-size: 13px;
+    }
+    details.advanced[open] > summary::after { content: "Hide"; }
+    .advanced-body {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .job-item {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 9px 10px;
+      background: rgba(255, 255, 255, 0.42);
+      cursor: pointer;
+    }
+    .job-item b { display: block; font-size: 14px; }
+    .job-item small { color: var(--muted); }
+    @media (max-width: 940px) {
+      .layout, .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>CuCaT Demo</h1>
+    <div class="subtitle">
+      Upload a song, a dance motion, and an MMD model. CuCaT selects cuts and transition frames, predicts a shot plan,
+      optimizes it with CP-SAT, and exports a camera VMD with a preview video.
+    </div>
+
+    <div class="layout">
+      <section class="card">
+        <h2>Input Files</h2>
+        <form id="jobForm">
+          <div class="grid">
+            <label class="wide drop-zone" data-file-drop="wav_file" data-extensions=".wav">
+              Music WAV
+              <input name="wav_file" type="file" accept=".wav,audio/wav,audio/x-wav" />
+              <span class="drop-copy">Drop WAV here or click to browse</span>
+              <span class="file-name" data-file-name="wav_file">No file selected</span>
+            </label>
+            <label class="wide drop-zone" data-file-drop="vmd_file" data-extensions=".vmd">
+              Dance VMD
+              <input name="vmd_file" type="file" accept=".vmd" />
+              <span class="drop-copy">Drop VMD here or click to browse</span>
+              <span class="file-name" data-file-name="vmd_file">No file selected</span>
+            </label>
+            <label class="wide drop-zone" data-file-drop="model_file" data-extensions=".pmx,.pmd">
+              <span id="modelLabel">Character model PMX/PMD</span>
+              <input name="model_file" type="file" accept=".pmx,.pmd" />
+              <span class="drop-copy" id="modelDropCopy">Drop a PMX/PMD whose skeleton matches the dance, or click to browse</span>
+              <span class="file-name" data-file-name="model_file">No file selected</span>
+            </label>
+            <label class="wide">
+              Model folder with textures (optional)
+              <input name="model_folder_files" type="file" webkitdirectory directory multiple />
+              <span class="hint">
+                Choose the model's original folder so its textures appear in the preview video.
+              </span>
+            </label>
+
+            <div class="wide future-panel">
+              <h3>Camera trajectory stage</h3>
+              <div class="hint">
+                After the timing stage, the page predicts the shot plan, optimizes it with CP-SAT,
+                and writes the camera VMD to the same output folder.
+              </div>
+              <div class="grid" style="margin-top:10px">
+                <label>
+                  Shot-plan model
+                  <input disabled placeholder="final model / v3_1_visual_scale_005" />
+                </label>
+                <label>
+                  Camera output
+                  <input disabled placeholder="camera_poses_v3_cutctx_optimized_cp_sat_interpstage.vmd" />
+                </label>
+              </div>
+            </div>
+
+            <details class="advanced">
+              <summary>Advanced options</summary>
+              <div class="advanced-body">
+                <label>
+                  Song id
+                  <input name="song_id" placeholder="optional, e.g. iris_out" />
+                </label>
+                <label>
+                  Frame policy
+                  <select name="frame_policy">
+                    <option value="min" selected>min(audio, motion)</option>
+                    <option value="motion">motion length</option>
+                    <option value="audio">audio length</option>
+                  </select>
+                </label>
+                <label class="wide">
+                  Pipeline goal
+                  <select name="pipeline_mode">
+                    <option value="timing_then_camera" selected>Timing + shot plan + camera VMD</option>
+                    <option value="timing_only">Timing only: cut/keyframe JSON</option>
+                  </select>
+                </label>
+                <div class="option-heading">Shot-plan optimization</div>
+                <label class="check wide"><input type="checkbox" name="skip_optimization" /> Skip CP-SAT optimization</label>
+                <label class="check"><input type="checkbox" name="optimization_enable_sequence_stats" /> Enable sequence stats</label>
+                <label class="check"><input type="checkbox" name="optimization_allow_new_top_pitch_candidates" /> Allow new top pitch</label>
+                <label class="wide">
+                  Near face/chest height calibration
+                  <select name="shotplan_height_calibration_mode">
+                    <option value="on" selected>on</option>
+                    <option value="off">off</option>
+                  </select>
+                </label>
+                <label>
+                  Face height offset
+                  <input name="shotplan_height_calibration_face_offset" type="number" step="0.005" value="-0.035" />
+                </label>
+                <label>
+                  Chest height offset
+                  <input name="shotplan_height_calibration_chest_offset" type="number" step="0.005" value="-0.025" />
+                </label>
+                <label>
+                  Top-k candidates
+                  <input name="optimization_top_k" type="number" min="1" max="30" step="1" value="10" />
+                </label>
+                <label>
+                  Solver time sec
+                  <input name="optimization_max_time_sec" type="number" min="1" step="1" value="30" />
+                </label>
+                <label>
+                  Local cost scale
+                  <input name="optimization_local_cost_scale" type="number" min="1" step="1" value="100" />
+                </label>
+                <label>
+                  Distance bounce
+                  <input name="optimization_distance_bounce_weight" type="number" min="0" step="10" value="400" />
+                </label>
+                <label>
+                  Composition bounce
+                  <input name="optimization_composition_bounce_weight" type="number" min="0" step="10" value="100" />
+                </label>
+                <label>
+                  Top bounce
+                  <input name="optimization_top_pitch_bounce_weight" type="number" min="0" step="10" value="400" />
+                </label>
+                <label>
+                  Top bounce gap
+                  <input name="optimization_top_pitch_bounce_max_frame_gap" type="number" min="1" step="1" value="30" />
+                </label>
+                <label>
+                  Cut identity
+                  <input name="optimization_cut_identity_weight" type="number" min="0" step="10" value="400" />
+                </label>
+                <label>
+                  Weak-cut contrast
+                  <input name="optimization_cut_contrast_weight" type="number" min="0" step="10" value="100" />
+                </label>
+                <label>
+                  Weak-cut min score
+                  <input name="optimization_cut_contrast_min_score" type="number" min="0" step="1" value="3" />
+                </label>
+                <label>
+                  Cut speed guard
+                  <input name="optimization_cut_context_speed_weight" type="number" min="0" step="10" value="400" />
+                </label>
+                <label>
+                  Cut speed min
+                  <input name="optimization_cut_context_speed_min_speed" type="number" min="0" step="10" value="250" />
+                </label>
+                <label>
+                  Repeated bounce
+                  <input name="optimization_repeated_distance_bounce_weight" type="number" min="0" step="10" value="1200" />
+                </label>
+                <label>
+                  Distance duration
+                  <input name="optimization_distance_level_duration_weight" type="number" min="0" step="10" value="160" />
+                </label>
+                <label>
+                  Duration upper key
+                  <input name="optimization_distance_level_duration_upper_key" value="p99_sec" />
+                </label>
+                <label class="wide">
+                  Duration stats JSON
+                  <input name="optimization_distance_level_duration_stats" placeholder="default: camera_autoshot/analysis/v31_distance_level_duration_stats_midpoint.json" />
+                </label>
+                <label class="wide">
+                  Duration levels
+                  <input name="optimization_distance_level_duration_include_levels" value="tight_close,close,medium_close" />
+                </label>
+                <div class="option-heading">Preview render</div>
+                <label class="check wide"><input type="checkbox" name="skip_render_preview" /> Skip MP4 preview render</label>
+                <label class="wide">
+                  Textured render model path
+                  <input name="render_model_path" placeholder="optional; leave blank to render with the model above" />
+                </label>
+                <label>
+                  Render width
+                  <input name="render_preview_width" type="number" min="320" step="2" value="1280" />
+                </label>
+                <label>
+                  Render height
+                  <input name="render_preview_height" type="number" min="180" step="2" value="720" />
+                </label>
+                <label>
+                  Render FPS
+                  <input name="render_preview_fps" type="number" min="1" step="1" value="30" />
+                </label>
+                <label>
+                  Session size
+                  <input name="render_preview_session_size" type="number" min="1" step="1" value="1" />
+                </label>
+                <div class="option-heading">Input and timing</div>
+                <label class="wide">
+                  Or WAV local path
+                  <input name="wav_path" placeholder="D:\path\music.wav" />
+                </label>
+                <label class="wide">
+                  Or VMD local path
+                  <input name="vmd_path" placeholder="D:\path\motion.vmd" />
+                </label>
+                <label class="wide">
+                  Or PMX/PMD local path
+                  <input name="model_path" placeholder="D:\path\model.pmx" />
+                </label>
+                <label>
+                  Motion JSON upload
+                  <input name="motion_json_file" type="file" accept=".json" />
+                </label>
+                <label>
+                  Device
+                  <select name="device">
+                    <option value="auto" selected>auto</option>
+                    <option value="cuda">cuda</option>
+                    <option value="cpu">cpu</option>
+                  </select>
+                </label>
+                <label class="wide">
+                  Or GlobalTransform JSON local path
+                  <input name="motion_json_path" placeholder="D:\path\motion_GlobalTransform.json" />
+                </label>
+                <label class="wide">
+                  mmd_target_dump.exe path
+                  <input name="target_dump_tool" placeholder="optional; auto-detects saba_mmd/build/Release/mmd_target_dump.exe" />
+                </label>
+                <label>
+                  Demucs device
+                  <select name="demucs_device">
+                    <option value="auto" selected>auto</option>
+                    <option value="cuda">cuda</option>
+                    <option value="cpu">cpu</option>
+                  </select>
+                </label>
+                <label>
+                  Demucs model
+                  <input name="demucs_model" value="htdemucs" />
+                </label>
+                <label class="wide">
+                  Demucs Python
+                  <input name="demucs_python" placeholder="optional; leave blank to use the pipeline Python" />
+                </label>
+                <label>
+                  Demucs shifts
+                  <input name="demucs_shifts" type="number" min="0" step="1" value="1" />
+                </label>
+                <label>
+                  Cut selection
+                  <select name="cut_selection_mode">
+                    <option value="global" selected>global</option>
+                    <option value="adaptive">adaptive</option>
+                    <option value="uniform">uniform</option>
+                  </select>
+                </label>
+                <label>
+                  Density cut percent
+                  <input name="density_cut_percent" type="number" step="1" value="70" />
+                </label>
+                <label>
+                  Cut min gap sec
+                  <input name="cut_min_gap_sec" type="number" step="0.1" value="1.0" />
+                </label>
+                <label>
+                  Cut min score
+                  <input name="cut_min_score" type="number" step="0.01" value="0" />
+                </label>
+                <label>
+                  Key cut exclusion sec
+                  <input name="keyframe_cut_exclusion_sec" type="number" step="0.1" value="0.5" />
+                </label>
+                <label>
+                  Key min gap frames
+                  <input name="keyframe_min_gap_frames" type="number" step="1" value="5" />
+                </label>
+              </div>
+            </details>
+
+            <div class="wide row">
+              <label class="check"><input type="checkbox" name="skip_demucs" /> Skip Demucs</label>
+              <label class="check"><input type="checkbox" name="allow_stem_fallback" /> Allow stem fallback</label>
+              <label class="check"><input type="checkbox" name="force" /> Force regenerate</label>
+            </div>
+
+            <div class="wide row">
+              <button id="runBtn" type="submit">Run pipeline</button>
+              <button id="refreshBtn" class="secondary" type="button">Refresh jobs</button>
+            </div>
+          </div>
+        </form>
+        <div class="hint">
+          Tip: instead of uploading, you can type local paths under Advanced options; the server reads them directly from this machine.
+        </div>
+      </section>
+
+      <aside class="card">
+        <h2>Current Job</h2>
+        <div id="status" class="status">idle</div>
+        <div id="progressPanel" class="progress-panel"></div>
+        <div id="summary" class="summary"></div>
+        <h2 style="margin-top:18px">Inference Timing</h2>
+        <div id="timings" class="timing-list"></div>
+        <h2 style="margin-top:18px">Pipeline Stages</h2>
+        <div id="stages" class="stage-list"></div>
+        <h2 style="margin-top:18px">Artifacts</h2>
+        <div id="artifacts" class="artifact-list"></div>
+        <div id="previewPanel" class="preview-panel">
+          <video id="previewVideo" controls playsinline></video>
+          <div id="previewCaption" class="preview-caption"></div>
+        </div>
+        <div id="links" class="links"></div>
+        <pre id="log">No job selected.</pre>
+
+        <h2 style="margin-top:18px">Recent Jobs</h2>
+        <div id="jobs" class="jobs"></div>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    if (location.protocol === "file:") {
+      const serverUrl = `http://127.0.0.1:8785/music_processing/unseen_mmd_pipeline_viewer.html${location.search || ""}${location.hash || ""}`;
+      document.body.innerHTML = `
+        <main>
+          <section class="card">
+            <h1>Opening Server Page</h1>
+            <p class="subtitle">This page needs the local pipeline server for uploads and API calls. Redirecting to <a href="${serverUrl}">${serverUrl}</a>...</p>
+          </section>
+        </main>
+      `;
+      location.replace(serverUrl);
+    }
+
+    const form = document.getElementById("jobForm");
+    const runBtn = document.getElementById("runBtn");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const statusEl = document.getElementById("status");
+    const progressPanel = document.getElementById("progressPanel");
+    const summaryEl = document.getElementById("summary");
+    const timingsEl = document.getElementById("timings");
+    const stagesEl = document.getElementById("stages");
+    const artifactsEl = document.getElementById("artifacts");
+    const previewPanel = document.getElementById("previewPanel");
+    const previewVideo = document.getElementById("previewVideo");
+    const previewCaption = document.getElementById("previewCaption");
+    const linksEl = document.getElementById("links");
+    const logEl = document.getElementById("log");
+    const jobsEl = document.getElementById("jobs");
+    const dropZones = Array.from(document.querySelectorAll("[data-file-drop]"));
+
+    let currentJobId = null;
+    let pollTimer = null;
+
+    async function loadConfig() {
+      const response = await fetch("/api/unseen/config");
+      if (!response.ok) return;
+      const config = await response.json();
+      if (config.default_model) {
+        document.getElementById("modelLabel").textContent = "Character model PMX/PMD (optional)";
+        document.getElementById("modelDropCopy").textContent =
+          `Optional: without a model, the server uses ${config.default_model}`;
+      }
+    }
+
+    function setStatus(text, status) {
+      statusEl.textContent = text;
+      statusEl.className = `status ${status || ""}`;
+    }
+
+    function stat(label, value) {
+      return `<div class="stat"><b>${value ?? "-"}</b><small>${label}</small></div>`;
+    }
+
+    function formatSeconds(value) {
+      const seconds = Number(value || 0);
+      if (!Number.isFinite(seconds)) return "-";
+      if (seconds < 1) return `${Math.round(seconds * 1000)}ms`;
+      if (seconds < 60) return `${seconds.toFixed(2)}s`;
+      const mins = Math.floor(seconds / 60);
+      const rest = seconds - mins * 60;
+      return `${mins}m ${rest.toFixed(1)}s`;
+    }
+
+    function formatEta(value) {
+      if (value === null || value === undefined || !Number.isFinite(Number(value))) return "estimating...";
+      return formatSeconds(value);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function fileExtension(file) {
+      const name = String(file?.name || "").toLowerCase();
+      const dot = name.lastIndexOf(".");
+      return dot >= 0 ? name.slice(dot) : "";
+    }
+
+    function allowedExtensions(zone) {
+      return String(zone.dataset.extensions || "")
+        .split(",")
+        .map((item) => item.trim().toLowerCase())
+        .filter(Boolean);
+    }
+
+    function acceptsFile(zone, file) {
+      const allowed = allowedExtensions(zone);
+      return allowed.length === 0 || allowed.includes(fileExtension(file));
+    }
+
+    function setInputFile(input, file) {
+      const transfer = new DataTransfer();
+      transfer.items.add(file);
+      input.files = transfer.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    function updateDropZone(zone) {
+      const input = form.elements[zone.dataset.fileDrop];
+      const fileNameEl = zone.querySelector("[data-file-name]");
+      const file = input?.files?.[0];
+      zone.classList.toggle("has-file", Boolean(file));
+      if (fileNameEl) fileNameEl.textContent = file ? file.name : "No file selected";
+    }
+
+    function assignDroppedFiles(files, targetZone = null) {
+      const fileList = Array.from(files || []);
+      if (!fileList.length) return;
+
+      const rejected = [];
+      if (targetZone) {
+        const input = form.elements[targetZone.dataset.fileDrop];
+        const file = fileList.find((candidate) => acceptsFile(targetZone, candidate));
+        if (file && input) setInputFile(input, file);
+        else rejected.push(fileList[0]?.name || "file");
+      } else {
+        for (const file of fileList) {
+          const zone = dropZones.find((candidate) => acceptsFile(candidate, file));
+          const input = zone ? form.elements[zone.dataset.fileDrop] : null;
+          if (zone && input) setInputFile(input, file);
+          else rejected.push(file.name);
+        }
+      }
+
+      dropZones.forEach(updateDropZone);
+      if (rejected.length) {
+        setStatus(`unsupported file: ${rejected.join(", ")}`, "failed");
+      } else {
+        setStatus("files ready", "");
+      }
+    }
+
+    dropZones.forEach((zone) => {
+      const input = form.elements[zone.dataset.fileDrop];
+      input?.addEventListener("change", () => updateDropZone(zone));
+      zone.addEventListener("dragenter", (event) => {
+        event.preventDefault();
+        zone.classList.add("dragging");
+      });
+      zone.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        zone.classList.add("dragging");
+      });
+      zone.addEventListener("dragleave", (event) => {
+        if (!zone.contains(event.relatedTarget)) zone.classList.remove("dragging");
+      });
+      zone.addEventListener("drop", (event) => {
+        event.preventDefault();
+        zone.classList.remove("dragging");
+        assignDroppedFiles(event.dataTransfer.files, zone);
+      });
+      updateDropZone(zone);
+    });
+
+    document.addEventListener("dragover", (event) => event.preventDefault());
+    document.addEventListener("drop", (event) => {
+      event.preventDefault();
+      const explicitZone = event.target.closest?.("[data-file-drop]");
+      if (!explicitZone) assignDroppedFiles(event.dataTransfer.files);
+    });
+
+    function renderStages(job) {
+      const stages = job.stages || [];
+      if (!stages.length) {
+        stagesEl.innerHTML = `<div class="hint">No stage metadata yet.</div>`;
+        return;
+      }
+      stagesEl.innerHTML = stages.map((stage) => `
+        <div class="stage-item">
+          <i class="dot ${escapeHtml(stage.status)}"></i>
+          <div>
+            <b>${escapeHtml(stage.name)} <span style="color:var(--muted)">(${escapeHtml(stage.status)})</span></b>
+            <small>${escapeHtml(stage.description)}</small>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderProgress(job) {
+      const progress = job.progress || {};
+      const percent = Math.max(0, Math.min(100, Number(progress.percent || 0)));
+      const status = String(job.status || "");
+      const eta = status === "completed"
+        ? "done"
+        : status === "failed"
+          ? "stopped"
+          : formatEta(progress.eta_sec);
+      const elapsed = formatSeconds(progress.elapsed_sec || 0);
+      const current = progress.current_step || (status === "queued" ? "Waiting to start" : "Preparing...");
+      const estimateNote = progress.is_estimate ? "rough ETA" : "actual";
+      const stepCount = progress.total_steps
+        ? `${progress.completed_steps || 0}/${progress.total_steps} steps`
+        : "";
+      progressPanel.className = `progress-panel ${escapeHtml(status)}`;
+      progressPanel.innerHTML = `
+        <div class="progress-top">
+          <b>${percent.toFixed(1)}%</b>
+          <span>${escapeHtml(estimateNote)}</span>
+        </div>
+        <div class="progress-track"><i style="width:${percent.toFixed(1)}%"></i></div>
+        <div class="progress-meta">
+          <span class="progress-step">${escapeHtml(current)}</span>
+          <span>${escapeHtml(stepCount)}</span>
+        </div>
+        <div class="progress-meta" style="margin-top:6px">
+          <span>elapsed ${escapeHtml(elapsed)}</span>
+          <span>ETA ${escapeHtml(eta)}</span>
+        </div>
+      `;
+    }
+
+    function renderTimings(job) {
+      const timing = job.summary?.timing_breakdown || {};
+      const rows = Array.isArray(timing.stages) ? timing.stages : [];
+      if (!rows.length) {
+        timingsEl.innerHTML = `<div class="hint">Timing appears after a completed run.</div>`;
+        return;
+      }
+      const maxSec = Math.max(...rows.map((row) => Number(row.duration_sec || 0)), 0.001);
+      const detailRows = rows.map((row) => {
+          const duration = Number(row.duration_sec || 0);
+          const width = Math.max(2, Math.min(100, (duration / maxSec) * 100));
+          return `
+            <div class="timing-item">
+              <header>
+                <span>${escapeHtml(row.label || row.id)}</span>
+                <span>${formatSeconds(duration)}</span>
+              </header>
+              <small>${escapeHtml(row.status || "ok")}</small>
+              <div class="timing-bar"><i style="width:${width.toFixed(1)}%"></i></div>
+            </div>
+          `;
+        }).join("");
+      timingsEl.innerHTML = `
+        <div class="stat"><b>${formatSeconds(timing.total_sec)}</b><small>Total wall time</small></div>
+        <details class="timing-details">
+          <summary>
+            <span>Stage breakdown</span>
+            <span>${rows.length} stages</span>
+          </summary>
+          <div class="timing-list">${detailRows}</div>
+        </details>
+      `;
+    }
+
+    function renderArtifacts(job) {
+      const artifacts = job.artifacts || {};
+      const entries = Object.entries(artifacts);
+      if (!entries.length) {
+        artifactsEl.innerHTML = `<div class="hint">Artifacts will appear after a job starts.</div>`;
+        return;
+      }
+      artifactsEl.innerHTML = entries.map(([key, item]) => {
+        const label = escapeHtml(item.label || key);
+        const status = escapeHtml(item.status || "pending");
+        const stage = escapeHtml(item.stage || "");
+        const body = item.url
+          ? `<a target="_blank" href="${item.url}">${label}</a>`
+          : `<b>${label}</b>`;
+        return `
+          <div class="artifact-item">
+            <div>${body}<small>${stage}</small></div>
+            <span class="artifact-status">${status}</span>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderPreview(job) {
+      const preview = (job.artifacts || {}).preview_video || {};
+      const url = preview.url || "";
+      if (!url) {
+        previewPanel.classList.remove("show");
+        previewVideo.removeAttribute("src");
+        previewCaption.textContent = "";
+        return;
+      }
+      previewPanel.classList.add("show");
+      if (previewVideo.getAttribute("src") !== url) {
+        previewVideo.src = url;
+      }
+      previewCaption.innerHTML = `Preview MP4: <a target="_blank" href="${url}">${escapeHtml(url)}</a>`;
+    }
+
+    function renderJob(job) {
+      currentJobId = job.id;
+      setStatus(`${job.status} | ${job.song_id}`, job.status);
+      logEl.textContent = (job.log || []).join("\n") || "No log yet.";
+      logEl.scrollTop = logEl.scrollHeight;
+
+      const s = job.summary || {};
+      const shotplan = s.shotplan || {};
+      renderProgress(job);
+      summaryEl.innerHTML = [
+        stat("mode", job.pipeline_mode || "timing_only"),
+        stat("optimization", shotplan.optimization_status || "pending"),
+        stat("cuts", s.selected_cut_count),
+        stat("transition frames", s.selected_noncut_keyframe_count),
+        stat("total keys", s.selected_total_keyframe_count),
+        stat("frames", s.num_frames),
+        stat("duration sec", s.duration_sec),
+        stat("inference time", s.timing_breakdown ? formatSeconds(s.timing_breakdown.total_sec) : "-"),
+        stat("return code", job.returncode),
+      ].join("");
+
+      renderTimings(job);
+      renderStages(job);
+      renderArtifacts(job);
+      renderPreview(job);
+
+      const links = [];
+      if (job.viewer_url) links.push(`<a target="_blank" href="${job.viewer_url}">Open timing viewer</a>`);
+      if (job.summary_url) {
+        const debugUrl = `/music_processing/unseen_mmd_debug_viewer.html?summary=${encodeURIComponent(job.summary_url)}`;
+        links.push(`<a target="_blank" href="${debugUrl}">Open pipeline debug viewer</a>`);
+        const editUrl = `/music_processing/shotplan_edit_viewer.html?summary=${encodeURIComponent(job.summary_url)}`;
+        links.push(`<a target="_blank" href="${editUrl}">Edit shot plan / re-render</a>`);
+      }
+      if (job.result_url) links.push(`<a target="_blank" href="${job.result_url}">final_cut_key_timings.json</a>`);
+      if (job.summary_url) links.push(`<a target="_blank" href="${job.summary_url}">summary.json</a>`);
+      if (shotplan.topk_candidates_json) links.push(`<span>Top-k: <code>${escapeHtml(shotplan.topk_candidates_json)}</code></span>`);
+      if (shotplan.optimization_json) links.push(`<span>Optimized plan: <code>${escapeHtml(shotplan.optimization_json)}</code></span>`);
+      if (shotplan.optimization_debug) links.push(`<span>Optimizer debug: <code>${escapeHtml(shotplan.optimization_debug)}</code></span>`);
+      if (s.shot_plan_json) links.push(`<span>Shot plan: <code>${escapeHtml(s.shot_plan_json)}</code></span>`);
+      if (s.camera_vmd) links.push(`<span>Camera VMD: <code>${escapeHtml(s.camera_vmd)}</code></span>`);
+      if (s.preview_video) links.push(`<span>Preview MP4: <code>${escapeHtml(s.preview_video)}</code></span>`);
+      if (s.output_dir) links.push(`<span>Output: <code>${s.output_dir}</code></span>`);
+      if (job.error) links.push(`<span style="color:var(--danger)">Error: ${job.error}</span>`);
+      linksEl.innerHTML = links.join("");
+
+      if (job.status === "running" || job.status === "queued") {
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    }
+
+    async function fetchJob(jobId) {
+      const response = await fetch(`/api/unseen/jobs/${encodeURIComponent(jobId)}`);
+      if (!response.ok) throw new Error(await response.text());
+      return response.json();
+    }
+
+    async function refreshCurrent() {
+      if (!currentJobId) return;
+      const job = await fetchJob(currentJobId);
+      renderJob(job);
+      await refreshJobs();
+    }
+
+    function startPolling() {
+      if (pollTimer) return;
+      pollTimer = setInterval(() => refreshCurrent().catch(console.error), 1800);
+    }
+
+    function stopPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = null;
+    }
+
+    async function refreshJobs() {
+      const response = await fetch("/api/unseen/jobs");
+      if (!response.ok) throw new Error(await response.text());
+      const jobs = await response.json();
+      if (!jobs.length) {
+        jobsEl.innerHTML = `<div class="hint">No jobs yet.</div>`;
+        return;
+      }
+      jobsEl.innerHTML = jobs.map((job) => `
+        <div class="job-item" data-job-id="${job.id}">
+          <b>${job.song_id}</b>
+          <small>${job.status} | ${job.created_at_text}</small>
+        </div>
+      `).join("");
+      jobsEl.querySelectorAll(".job-item").forEach((el) => {
+        el.addEventListener("click", async () => {
+          const job = await fetchJob(el.dataset.jobId);
+          renderJob(job);
+        });
+      });
+      if (!currentJobId && jobs[0]) {
+        renderJob(jobs[0]);
+      }
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      runBtn.disabled = true;
+      setStatus("uploading...", "running");
+      logEl.textContent = "Uploading inputs and starting pipeline...";
+      try {
+        const response = await fetch("/api/unseen/jobs", {
+          method: "POST",
+          body: new FormData(form),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || JSON.stringify(payload));
+        renderJob(payload);
+        await refreshJobs();
+      } catch (error) {
+        setStatus("failed", "failed");
+        logEl.textContent = String(error && error.stack || error);
+      } finally {
+        runBtn.disabled = false;
+      }
+    });
+
+    refreshBtn.addEventListener("click", () => refreshJobs().catch(console.error));
+    loadConfig().catch(console.error);
+    refreshJobs().catch(console.error);
+  </script>
+</body>
+</html>

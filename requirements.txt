@@ -1,0 +1,16 @@
+numpy
+scipy
+torch
+librosa
+matplotlib
+ortools
+demucs
+soundfile
+openpyxl
+
+# Beat/downbeat features. Optional for the end-to-end pipeline (it falls back to
+# librosa beat tracking), required to build the DCM evaluation and training features.
+# madmom-prebuilt
+
+# Optional: W&B logging during training.
+# wandb

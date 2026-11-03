@@ -1,0 +1,20 @@
+{
+ "script": "shotplan_transformer.train_v3_interpolation_stage",
+ "checkpoint": "final model/v3_1_interpolation_stage/best.pt",
+ "args": {
+  "dataset_root": "shotplan_transformer/results/discrete_v3_1_30fps_close_dense_temporal_delta_interp_dcm_split_dataset",
+  "output_root": "shotplan_transformer/results/v3_interpolation_stage_runs",
+  "epochs": 30,
+  "batch_size": 512,
+  "lr": 0.0005,
+  "weight_decay": 0.0001,
+  "embedding_dim": 64,
+  "hidden_dim": 256,
+  "num_layers": 3,
+  "dropout": 0.15,
+  "class_weight_power": 0.35,
+  "device": "cuda",
+  "seed": 42,
+  "tag": "v3_1_baseline_interpstage_ctx3"
+ }
+}

@@ -1,0 +1,301 @@
+{
+  "description": "Official DCM test clips (DanceCamera3D split) with their frame ranges in the full songs. Used by evaluation/ to select test clips and to match outputs to the DCM++ Test ground truth.",
+  "clip_count": 42,
+  "song_count": 33,
+  "clips": [
+    {
+      "clip_id": "C_3_1",
+      "source_song_id": "c3",
+      "official_split": "test",
+      "source_start_frame": 854,
+      "source_end_frame": 1441
+    },
+    {
+      "clip_id": "C_8_1",
+      "source_song_id": "c8",
+      "official_split": "test",
+      "source_start_frame": 909,
+      "source_end_frame": 1849
+    },
+    {
+      "clip_id": "K_9_1",
+      "source_song_id": "c9",
+      "official_split": "test",
+      "source_start_frame": 647,
+      "source_end_frame": 1485
+    },
+    {
+      "clip_id": "K_9_4",
+      "source_song_id": "c9",
+      "official_split": "test",
+      "source_start_frame": 3009,
+      "source_end_frame": 3689
+    },
+    {
+      "clip_id": "K_9_6",
+      "source_song_id": "c9",
+      "official_split": "test",
+      "source_start_frame": 4230,
+      "source_end_frame": 4823
+    },
+    {
+      "clip_id": "K_10_2",
+      "source_song_id": "c10",
+      "official_split": "test",
+      "source_start_frame": 1560,
+      "source_end_frame": 2081
+    },
+    {
+      "clip_id": "K_16_2",
+      "source_song_id": "c16",
+      "official_split": "test",
+      "source_start_frame": 1885,
+      "source_end_frame": 2451
+    },
+    {
+      "clip_id": "J_20_2",
+      "source_song_id": "c20",
+      "official_split": "test",
+      "source_start_frame": 1535,
+      "source_end_frame": 2305
+    },
+    {
+      "clip_id": "E_27_3",
+      "source_song_id": "c27",
+      "official_split": "test",
+      "source_start_frame": 2360,
+      "source_end_frame": 2914
+    },
+    {
+      "clip_id": "K_28",
+      "source_song_id": "c28",
+      "official_split": "test",
+      "source_start_frame": 0,
+      "source_end_frame": 595
+    },
+    {
+      "clip_id": "K_40_0",
+      "source_song_id": "c40",
+      "official_split": "test",
+      "source_start_frame": 0,
+      "source_end_frame": 948
+    },
+    {
+      "clip_id": "K_40_1",
+      "source_song_id": "c40",
+      "official_split": "test",
+      "source_start_frame": 948,
+      "source_end_frame": 1969
+    },
+    {
+      "clip_id": "K_43_3",
+      "source_song_id": "c43",
+      "official_split": "test",
+      "source_start_frame": 2435,
+      "source_end_frame": 3446
+    },
+    {
+      "clip_id": "K_43_4",
+      "source_song_id": "c43",
+      "official_split": "test",
+      "source_start_frame": 3446,
+      "source_end_frame": 4021
+    },
+    {
+      "clip_id": "K_44_0",
+      "source_song_id": "c44",
+      "official_split": "test",
+      "source_start_frame": 0,
+      "source_end_frame": 986
+    },
+    {
+      "clip_id": "K_47_1",
+      "source_song_id": "c47",
+      "official_split": "test",
+      "source_start_frame": 575,
+      "source_end_frame": 1522
+    },
+    {
+      "clip_id": "K_50_1",
+      "source_song_id": "c50",
+      "official_split": "test",
+      "source_start_frame": 977,
+      "source_end_frame": 1582
+    },
+    {
+      "clip_id": "C_57_1",
+      "source_song_id": "c57",
+      "official_split": "test",
+      "source_start_frame": 533,
+      "source_end_frame": 1052
+    },
+    {
+      "clip_id": "E_59_1",
+      "source_song_id": "c59",
+      "official_split": "test",
+      "source_start_frame": 633,
+      "source_end_frame": 1227
+    },
+    {
+      "clip_id": "E_59_4",
+      "source_song_id": "c59",
+      "official_split": "test",
+      "source_start_frame": 2409,
+      "source_end_frame": 3101
+    },
+    {
+      "clip_id": "J_60_7",
+      "source_song_id": "c60",
+      "official_split": "test",
+      "source_start_frame": 5185,
+      "source_end_frame": 5903
+    },
+    {
+      "clip_id": "J_65_2",
+      "source_song_id": "c65",
+      "official_split": "test",
+      "source_start_frame": 1563,
+      "source_end_frame": 2079
+    },
+    {
+      "clip_id": "J_65_5",
+      "source_song_id": "c65",
+      "official_split": "test",
+      "source_start_frame": 3614,
+      "source_end_frame": 4614
+    },
+    {
+      "clip_id": "C_66_2",
+      "source_song_id": "c66",
+      "official_split": "test",
+      "source_start_frame": 1809,
+      "source_end_frame": 2746
+    },
+    {
+      "clip_id": "C_66_6",
+      "source_song_id": "c66",
+      "official_split": "test",
+      "source_start_frame": 5288,
+      "source_end_frame": 6286
+    },
+    {
+      "clip_id": "C_66_8",
+      "source_song_id": "c66",
+      "official_split": "test",
+      "source_start_frame": 7274,
+      "source_end_frame": 8025
+    },
+    {
+      "clip_id": "C_67_5",
+      "source_song_id": "c67",
+      "official_split": "test",
+      "source_start_frame": 3466,
+      "source_end_frame": 3976
+    },
+    {
+      "clip_id": "J_68_1",
+      "source_song_id": "c68",
+      "official_split": "test",
+      "source_start_frame": 741,
+      "source_end_frame": 1358
+    },
+    {
+      "clip_id": "J_70_3",
+      "source_song_id": "c70",
+      "official_split": "test",
+      "source_start_frame": 2121,
+      "source_end_frame": 3004
+    },
+    {
+      "clip_id": "C_76_5",
+      "source_song_id": "c76",
+      "official_split": "test",
+      "source_start_frame": 3977,
+      "source_end_frame": 4728
+    },
+    {
+      "clip_id": "J_77_3",
+      "source_song_id": "c77",
+      "official_split": "test",
+      "source_start_frame": 2160,
+      "source_end_frame": 2740
+    },
+    {
+      "clip_id": "K_78_4",
+      "source_song_id": "c78",
+      "official_split": "test",
+      "source_start_frame": 3545,
+      "source_end_frame": 4307
+    },
+    {
+      "clip_id": "C_79_0",
+      "source_song_id": "c79",
+      "official_split": "test",
+      "source_start_frame": 0,
+      "source_end_frame": 763
+    },
+    {
+      "clip_id": "C_79_4",
+      "source_song_id": "c79",
+      "official_split": "test",
+      "source_start_frame": 3145,
+      "source_end_frame": 4105
+    },
+    {
+      "clip_id": "C_80_6",
+      "source_song_id": "c80",
+      "official_split": "test",
+      "source_start_frame": 4803,
+      "source_end_frame": 5495
+    },
+    {
+      "clip_id": "C_81_3",
+      "source_song_id": "c81",
+      "official_split": "test",
+      "source_start_frame": 2180,
+      "source_end_frame": 3065
+    },
+    {
+      "clip_id": "C_90_4",
+      "source_song_id": "c90",
+      "official_split": "test",
+      "source_start_frame": 3576,
+      "source_end_frame": 4086
+    },
+    {
+      "clip_id": "K_91_3",
+      "source_song_id": "c91",
+      "official_split": "test",
+      "source_start_frame": 2250,
+      "source_end_frame": 2766
+    },
+    {
+      "clip_id": "K_92_3",
+      "source_song_id": "c92",
+      "official_split": "test",
+      "source_start_frame": 2049,
+      "source_end_frame": 2631
+    },
+    {
+      "clip_id": "K_94_0",
+      "source_song_id": "c94",
+      "official_split": "test",
+      "source_start_frame": 0,
+      "source_end_frame": 667
+    },
+    {
+      "clip_id": "K_103_2",
+      "source_song_id": "c103",
+      "official_split": "test",
+      "source_start_frame": 1449,
+      "source_end_frame": 1994
+    },
+    {
+      "clip_id": "K_106_1",
+      "source_song_id": "c106",
+      "official_split": "test",
+      "source_start_frame": 548,
+      "source_end_frame": 1146
+    }
+  ]
+}
