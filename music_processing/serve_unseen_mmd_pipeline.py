@@ -51,6 +51,9 @@ VIEWER_PATH = REPO_ROOT / "music_processing" / "unseen_mmd_pipeline_viewer.html"
 WEB_DEMO_ROOT = REPO_ROOT / "music_processing" / "results" / "web_demo"
 DEFAULT_UPLOAD_ROOT = WEB_DEMO_ROOT / "uploads"
 DEFAULT_OUTPUT_ROOT = WEB_DEMO_ROOT / "outputs"
+DEFAULT_MODEL_LIBRARY = WEB_DEMO_ROOT / "models"
+MODEL_SUFFIXES = {".pmx", ".pmd"}
+MODEL_LIBRARY_LOCK = threading.Lock()
 PIPELINE_STAGE_PREFIX = "__PIPELINE_STAGE__ "
 TIMING_EVENT_IDS = {
     "input_setup",
@@ -103,7 +106,7 @@ PIPELINE_PROGRESS_STEPS = [
 PROGRESS_STEP_BY_ID = {str(step["id"]): step for step in PIPELINE_PROGRESS_STEPS}
 TIMING_ONLY_PROGRESS_IDS = TIMING_EVENT_IDS | {"output_write"}
 TERMINAL_PROGRESS_STATUSES = {"completed", "ok", "skipped", "missing"}
-QUIET_LOG_PREFIXES = ("/api/unseen/jobs",)
+QUIET_LOG_PREFIXES = ("/api/unseen/jobs", "/api/unseen/results", "/api/unseen/models", "/api/unseen/inputs", "/api/unseen/run/")
 
 
 @dataclass
@@ -543,7 +546,7 @@ def save_uploads_preserve_relative(form: cgi.FieldStorage, name: str, dest_dir: 
 
 
 def first_model_file(paths: list[Path]) -> Path | None:
-    models = [path for path in paths if path.suffix.lower() in {".pmx", ".pmd"}]
+    models = [path for path in paths if path.suffix.lower() in MODEL_SUFFIXES]
     if not models:
         return None
     return sorted(models, key=lambda path: (-path.stat().st_size, len(path.parts), str(path).lower()))[0]
@@ -554,11 +557,168 @@ def matching_uploaded_model_in_folder(model_upload: Path, paths: list[Path]) -> 
     matches = [
         path
         for path in paths
-        if path.suffix.lower() in {".pmx", ".pmd"} and path.name.lower() == upload_name
+        if path.suffix.lower() in MODEL_SUFFIXES and path.name.lower() == upload_name
     ]
     if not matches:
         return None
     return sorted(matches, key=lambda path: (len(path.parts), str(path).lower()))[0]
+
+
+def model_display_name(path: Path) -> str:
+    """Name stored in a PMX/PMD header (e.g. 猫又おかゆ), falling back to the file stem."""
+
+    name = ""
+    try:
+        with path.open("rb") as handle:
+            head = handle.read(512)
+        if head[:4] == b"PMX ":
+            offset = 9 + head[8]
+            length = int.from_bytes(head[offset : offset + 4], "little")
+            name = head[offset + 4 : offset + 4 + length].decode("utf-16-le" if head[9] == 0 else "utf-8", "replace")
+        elif head[:3] == b"Pmd":
+            name = head[7:27].split(b"\0", 1)[0].decode("cp932", "replace")
+    except OSError:
+        pass
+    return name.strip() or path.stem
+
+
+def file_sha1(path: Path) -> str:
+    digest = hashlib.sha1()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def link_or_copy(src: str, dst: str) -> None:
+    # A hard link keeps the library copy of a large texture folder free when it is on the same drive.
+    if os.path.exists(dst) and os.path.samefile(src, dst):
+        return
+    try:
+        os.link(src, dst)
+    except OSError:
+        shutil.copy2(src, dst)
+
+
+def library_entry(entry_dir: Path) -> dict[str, Any] | None:
+    try:
+        meta = read_json_file(entry_dir / "model.json")
+    except (OSError, ValueError):
+        return None
+    if not meta.get("file") or not (entry_dir / "files" / meta["file"]).is_file():
+        return None
+    return meta
+
+
+def write_library_entry(entry_dir: Path, meta: dict[str, Any]) -> None:
+    (entry_dir / "model.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def list_library_models(library_root: Path) -> list[dict[str, Any]]:
+    entries = []
+    if library_root.is_dir():
+        for entry_dir in library_root.iterdir():
+            meta = library_entry(entry_dir) if entry_dir.is_dir() else None
+            if meta is not None:
+                entries.append({**meta, "id": entry_dir.name})
+    return sorted(entries, key=lambda meta: -float(meta.get("last_used", 0)))
+
+
+def register_library_model(
+    library_root: Path,
+    model_path: Path,
+    source_root: Path,
+    *,
+    move: bool,
+    used_at: float | None = None,
+) -> Path:
+    """Keep a model, with the folder it was uploaded in, so later runs can pick it without uploading it again.
+
+    Entries are keyed by the model file's hash. The same model uploaded again with more of its folder
+    (for example, now with its textures) replaces the smaller copy.
+    """
+
+    used_at = time.time() if used_at is None else used_at
+    ascii_stem = model_path.stem.encode("ascii", "ignore").decode().strip()
+    entry_dir = library_root / f"{slug(ascii_stem) if ascii_stem else 'model'}_{file_sha1(model_path)[:12]}"
+    is_folder = source_root.is_dir()
+    relative = model_path.relative_to(source_root) if is_folder else Path(model_path.name)
+    file_count = sum(1 for path in source_root.rglob("*") if path.is_file()) if is_folder else 1
+    with MODEL_LIBRARY_LOCK:
+        meta = library_entry(entry_dir)
+        if meta is None or int(meta.get("files", 0)) < file_count:
+            # Added on top of an older copy rather than replacing it, so runs that used that copy keep their files.
+            files_dir = entry_dir / "files"
+            files_dir.mkdir(parents=True, exist_ok=True)
+            if is_folder:
+                shutil.copytree(source_root, files_dir, copy_function=link_or_copy, dirs_exist_ok=True)
+            else:
+                link_or_copy(str(source_root), str(files_dir / source_root.name))
+            meta = {
+                "name": model_display_name(model_path),
+                "file": relative.as_posix(),
+                "files": file_count,
+                "added_at": used_at,
+                "last_used": used_at,
+            }
+        else:
+            meta["last_used"] = max(float(meta.get("last_used", 0)), used_at)
+        write_library_entry(entry_dir, meta)
+        if move:
+            if is_folder:
+                shutil.rmtree(source_root, ignore_errors=True)
+            else:
+                source_root.unlink(missing_ok=True)
+    return entry_dir / "files" / meta["file"]
+
+
+def use_library_model(library_root: Path, entry_id: str) -> Path:
+    entry_dir = (library_root / entry_id).resolve()
+    meta = library_entry(entry_dir) if entry_dir.parent == library_root.resolve() else None
+    if meta is None:
+        raise ValueError("The saved model is no longer in the model library. Pick another one or upload it again.")
+    with MODEL_LIBRARY_LOCK:
+        meta["last_used"] = time.time()
+        write_library_entry(entry_dir, meta)
+    return entry_dir / "files" / meta["file"]
+
+
+def uploaded_model_source(input_dir: Path) -> tuple[Path, Path] | None:
+    """(model, folder that came with it) of an earlier demo upload, chosen as build_command_from_form chose it."""
+
+    if not input_dir.is_dir():
+        return None
+    loose = sorted(path for path in input_dir.iterdir() if path.is_file() and path.suffix.lower() in MODEL_SUFFIXES)
+    folder = input_dir / "model_folder"
+    folder_files = [path for path in folder.rglob("*") if path.is_file()] if folder.is_dir() else []
+    if folder_files:
+        model = (matching_uploaded_model_in_folder(loose[0], folder_files) if loose else None) or first_model_file(folder_files)
+        if model is not None:
+            return model, folder
+    return (loose[0], loose[0]) if loose else None
+
+
+def import_uploaded_models(upload_root: Path, library_root: Path) -> int:
+    """Add the models of uploads made before the library existed, once per upload folder."""
+
+    marker = library_root / "imported_uploads.json"
+    done = set(read_json_file(marker).get("uploads", []))
+    job_dirs = sorted(path for path in upload_root.iterdir() if path.is_dir() and path.name not in done) if upload_root.is_dir() else []
+    added = 0
+    for job_dir in job_dirs:
+        source = uploaded_model_source(job_dir / "input")
+        if source is not None:
+            try:
+                register_library_model(library_root, *source, move=False, used_at=job_dir.stat().st_mtime)
+                added += 1
+            except OSError as exc:
+                print(f"Could not add the model uploaded in {job_dir.name}: {exc}", flush=True)
+                continue
+        done.add(job_dir.name)
+    if job_dirs:
+        library_root.mkdir(parents=True, exist_ok=True)
+        marker.write_text(json.dumps({"uploads": sorted(done)}, indent=2), encoding="utf-8")
+    return added
 
 
 def existing_or_none(path_text: str) -> Path | None:
@@ -603,8 +763,76 @@ def first_existing_path(*values: Any) -> Path | None:
     return None
 
 
-def render_edited_shotplan(payload: dict[str, Any]) -> dict[str, Any]:
-    """Save an edited shot plan from the editor page, solve it into a camera VMD, and re-render."""
+def run_input_paths(summary_path: Path, summary: dict[str, Any]) -> dict[str, Path | None]:
+    """Model, dance VMD, and WAV a finished run used, as recorded in its outputs."""
+
+    output_dir = summary_path.parent
+    final_timing = read_json_file(first_existing_path(summary.get("final_cut_key_timings")))
+    final_input = final_timing.get("input") if isinstance(final_timing.get("input"), dict) else {}
+    preprocess = read_json_file(output_dir / "preprocess_summary.json")
+    motion_conversion = preprocess.get("motion_conversion") if isinstance(preprocess.get("motion_conversion"), dict) else {}
+    demucs = preprocess.get("demucs") if isinstance(preprocess.get("demucs"), dict) else {}
+    return {
+        "model": first_existing_path(
+            summary.get("render_model_path"),
+            final_input.get("model_path"),
+            motion_conversion.get("model_path"),
+        ),
+        "motion": first_existing_path(final_input.get("vmd_path"), motion_conversion.get("vmd_path")),
+        "audio": first_existing_path(final_input.get("wav_path"), demucs.get("audio_path")),
+    }
+
+
+WEB_INPUT_KEYS = ("wav", "vmd", "motion_json", "model", "render_model")
+
+
+def reusable_inputs(run_dir: Path) -> dict[str, Path | None]:
+    """Files an earlier demo run used: web_inputs.json for runs started by this server, else its summaries."""
+
+    recorded = read_json_file(run_dir / "web_inputs.json")
+    if recorded:
+        return {key: first_existing_path(recorded.get(key)) for key in WEB_INPUT_KEYS}
+    found = run_input_paths(run_dir / "summary.json", read_json_file(run_dir / "summary.json"))
+    return {"wav": found["audio"], "vmd": found["motion"], "motion_json": None, "model": found["model"], "render_model": None}
+
+
+def resolve_run_dir(output_root: Path, song_id: str) -> Path:
+    run_dir = (output_root / song_id).resolve()
+    if run_dir.parent != output_root.resolve() or not run_dir.is_dir():
+        raise ValueError(f"The earlier run {song_id} is no longer in {output_root}.")
+    return run_dir
+
+
+def list_reusable_runs(output_root: Path) -> list[dict[str, Any]]:
+    """Earlier runs whose music and dance are still on disk, newest first, for the page's "same inputs" choice."""
+
+    runs = []
+    for run_dir in output_root.iterdir() if output_root.is_dir() else []:
+        record = next((run_dir / name for name in ("web_inputs.json", "preprocess_summary.json") if (run_dir / name).is_file()), None)
+        if record is None:
+            continue
+        try:
+            inputs = reusable_inputs(run_dir)
+        except (OSError, ValueError):
+            continue
+        dance = inputs["vmd"] or inputs["motion_json"]
+        if inputs["wav"] is None or dance is None:
+            continue
+        runs.append(
+            {
+                "song_id": run_dir.name,
+                "wav": inputs["wav"].name,
+                "dance": dance.name,
+                "model": inputs["model"].name if inputs["model"] is not None else None,
+                "created_at": record.stat().st_mtime,
+                "finished": (run_dir / "summary.json").is_file(),
+            }
+        )
+    return sorted(runs, key=lambda run: -run["created_at"])
+
+
+def resolve_edit_request(payload: dict[str, Any]) -> dict[str, Any]:
+    """Read the run, its source plan, and the edited keyframes sent by the editor tab."""
 
     summary_path = path_from_url_or_text(payload.get("summary_url") or payload.get("summary_path"))
     if summary_path is None or not summary_path.exists():
@@ -622,23 +850,10 @@ def render_edited_shotplan(payload: dict[str, Any]) -> dict[str, Any]:
     )
     if source_plan_path is None:
         raise ValueError("Could not resolve source shot-plan JSON.")
-    source_plan = read_json_file(source_plan_path)
 
     keyframes = payload.get("keyframes")
     if not isinstance(keyframes, list) or not keyframes:
         raise ValueError("Payload must include a non-empty keyframes list.")
-    edited_keyframes = sorted(
-        [dict(row) for row in keyframes],
-        key=lambda row: int(row.get("frame", 0) or 0),
-    )
-
-    final_timing_path = first_existing_path(summary.get("final_cut_key_timings"))
-    final_timing = read_json_file(final_timing_path)
-    final_input = final_timing.get("input") if isinstance(final_timing.get("input"), dict) else {}
-    preprocess_path = output_dir / "preprocess_summary.json"
-    preprocess = read_json_file(preprocess_path)
-    motion_conversion = preprocess.get("motion_conversion") if isinstance(preprocess.get("motion_conversion"), dict) else {}
-    demucs = preprocess.get("demucs") if isinstance(preprocess.get("demucs"), dict) else {}
 
     default_target_probe_path = output_dir / "intermediate" / f"{summary.get('song_id', output_dir.name)}_target_probe.json"
     target_probe_path = first_existing_path(
@@ -646,30 +861,107 @@ def render_edited_shotplan(payload: dict[str, Any]) -> dict[str, Any]:
         shotplan_summary.get("target_probe_json"),
         default_target_probe_path,
     )
-    model_path = first_existing_path(
-        payload.get("render_model_path"),
-        summary.get("render_model_path"),
-        final_input.get("model_path"),
-        motion_conversion.get("model_path"),
-    )
-    motion_vmd_path = first_existing_path(
-        payload.get("motion_vmd_path"),
-        final_input.get("vmd_path"),
-        motion_conversion.get("vmd_path"),
-    )
-    wav_path = first_existing_path(
-        payload.get("wav_path"),
-        final_input.get("wav_path"),
-        demucs.get("audio_path"),
-    )
     if target_probe_path is None:
         raise ValueError("Could not resolve the target probe JSON needed for camera VMD export.")
+    return {
+        "summary_path": summary_path,
+        "output_dir": output_dir,
+        "summary": summary,
+        "shotplan_summary": shotplan_summary,
+        "source_plan_path": source_plan_path,
+        "source_plan": read_json_file(source_plan_path),
+        "keyframes": sorted([dict(row) for row in keyframes], key=lambda row: int(row.get("frame", 0) or 0)),
+        "target_probe_path": target_probe_path,
+        # Solve with the forward stabilization the original run used.
+        "stabilize_forward": bool(shotplan_summary.get("actor_forward_stabilization", True)),
+    }
+
+
+def edit_solve_config(shotplan_summary: dict[str, Any]) -> Any:
+    """Camera solve config with the height calibration recorded by the original run."""
+
+    from music_processing.run_unseen_mmd_timing_pipeline import _shotplan_height_calibration_config
+
+    calibration = shotplan_summary.get("height_calibration") if isinstance(shotplan_summary.get("height_calibration"), dict) else {}
+    face_offset = -0.035
+    chest_offset = -0.025
+    for rule in calibration.get("exported_rules") or []:
+        if rule.get("target_anchor") == "face":
+            face_offset = float(rule.get("y_offset_fraction", face_offset))
+            break
+    for rule in calibration.get("exported_rules") or []:
+        if rule.get("target_anchor") == "chest":
+            chest_offset = float(rule.get("y_offset_fraction", chest_offset))
+            break
+    return _shotplan_height_calibration_config(
+        argparse.Namespace(
+            shotplan_height_calibration=bool(calibration.get("enabled", True)),
+            shotplan_height_calibration_face_offset=face_offset,
+            shotplan_height_calibration_chest_offset=chest_offset,
+        )
+    )
+
+
+LIVE_PROVIDERS: dict[tuple[str, bool], Any] = {}
+LIVE_LOCK = threading.Lock()
+
+
+def live_camera_preview(payload: dict[str, Any]) -> dict[str, Any]:
+    """Solve edited keyframes into a camera VMD for the editor's live 3D preview, without rendering a video."""
+
+    from camera_autoshot.providers import JsonFrameTargetProvider
+    from camera_autoshot.vmd import write_camera_vmd
+    from shotplan_transformer.infer_v3_cut_context_dcm_from_timing import _solve_plan_camera
+
+    request = resolve_edit_request(payload)
+    plan = json.loads(json.dumps(request["source_plan"]))
+    plan["keyframes"] = request["keyframes"]
+    digest = hashlib.sha1(json.dumps(request["keyframes"], sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()[:10]
+    live_dir = request["output_dir"] / "shotplan_edits" / "live"
+    live_vmd = live_dir / f"live_{digest}.vmd"
+    with LIVE_LOCK:
+        if not live_vmd.exists():
+            key = (str(request["target_probe_path"]), request["stabilize_forward"])
+            provider = LIVE_PROVIDERS.get(key)
+            if provider is None:
+                # Body targets are a few MB of JSON; keep the most recent run's in memory so each edit solves in milliseconds.
+                LIVE_PROVIDERS.clear()
+                provider = LIVE_PROVIDERS[key] = JsonFrameTargetProvider(
+                    request["target_probe_path"],
+                    stabilize_forward=request["stabilize_forward"],
+                )
+            solved = _solve_plan_camera(plan, provider, edit_solve_config(request["shotplan_summary"]))
+            live_dir.mkdir(parents=True, exist_ok=True)
+            for old in live_dir.glob("live_*.vmd"):
+                old.unlink(missing_ok=True)
+            write_camera_vmd(solved, live_vmd, model_name="CuCaT live preview")
+    return {"vmd_url": repo_url(live_vmd)}
+
+
+def render_edited_shotplan(payload: dict[str, Any]) -> dict[str, Any]:
+    """Save an edited shot plan from the editor page, solve it into a camera VMD, and re-render."""
+
+    request = resolve_edit_request(payload)
+    summary_path = request["summary_path"]
+    output_dir = request["output_dir"]
+    summary = request["summary"]
+    shotplan_summary = request["shotplan_summary"]
+    source_plan_path = request["source_plan_path"]
+    source_plan = request["source_plan"]
+    edited_keyframes = request["keyframes"]
+    target_probe_path = request["target_probe_path"]
+
+    inputs = run_input_paths(summary_path, summary)
+    model_path = first_existing_path(payload.get("render_model_path")) or inputs["model"]
+    motion_vmd_path = first_existing_path(payload.get("motion_vmd_path")) or inputs["motion"]
+    wav_path = first_existing_path(payload.get("wav_path")) or inputs["audio"]
     if model_path is None:
         raise ValueError("Could not resolve render model path.")
     if motion_vmd_path is None:
         raise ValueError("Could not resolve source motion VMD path.")
     if wav_path is None:
         raise ValueError("Could not resolve source WAV path.")
+    final_input = read_json_file(first_existing_path(summary.get("final_cut_key_timings"))).get("input") or {}
 
     stamp = time.strftime("%Y%m%d_%H%M%S")
     digest = hashlib.sha1(json.dumps(edited_keyframes, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()[:8]
@@ -690,36 +982,15 @@ def render_edited_shotplan(payload: dict[str, Any]) -> dict[str, Any]:
     }
     edited_plan_path.write_text(json.dumps(edited_plan, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    from music_processing.run_unseen_mmd_timing_pipeline import (
-        _render_preview_video,
-        _shotplan_height_calibration_config,
-        _write_vmd_from_plan,
-    )
+    from music_processing.run_unseen_mmd_timing_pipeline import _render_preview_video, _write_vmd_from_plan
 
-    # Reuse the height calibration recorded by the original run.
-    calibration = shotplan_summary.get("height_calibration") if isinstance(shotplan_summary.get("height_calibration"), dict) else {}
-    face_offset = -0.035
-    chest_offset = -0.025
-    for rule in calibration.get("exported_rules") or []:
-        if rule.get("target_anchor") == "face":
-            face_offset = float(rule.get("y_offset_fraction", face_offset))
-            break
-    for rule in calibration.get("exported_rules") or []:
-        if rule.get("target_anchor") == "chest":
-            chest_offset = float(rule.get("y_offset_fraction", chest_offset))
-            break
-    solve_args = argparse.Namespace(
-        shotplan_height_calibration=bool(calibration.get("enabled", True)),
-        shotplan_height_calibration_face_offset=face_offset,
-        shotplan_height_calibration_chest_offset=chest_offset,
-    )
     _write_vmd_from_plan(
         edited_plan_path,
         target_probe_path,
         edited_vmd_path,
         edited_debug_path,
-        solve_config=_shotplan_height_calibration_config(solve_args),
-        stabilize_forward=bool(shotplan_summary.get("actor_forward_stabilization", True)),
+        solve_config=edit_solve_config(shotplan_summary),
+        stabilize_forward=request["stabilize_forward"],
     )
 
     render_preview = bool(payload.get("render_preview", True))
@@ -765,6 +1036,138 @@ def render_edited_shotplan(payload: dict[str, Any]) -> dict[str, Any]:
         "source_plan": str(source_plan_path),
         "summary": str(summary_path),
     }
+
+
+def render_run_preview(payload: dict[str, Any]) -> dict[str, Any]:
+    """Render the MP4 preview of a finished run that skipped it, and record it as that run's preview."""
+
+    summary_path = path_from_url_or_text(payload.get("summary_url") or payload.get("summary_path"))
+    if summary_path is None or not summary_path.exists():
+        raise ValueError("A valid summary_url or summary_path is required.")
+    output_dir = summary_path.parent
+    summary = read_json_file(summary_path)
+    shotplan_summary = summary.get("shotplan") if isinstance(summary.get("shotplan"), dict) else {}
+    camera_path = first_existing_path(shotplan_summary.get("final_camera_vmd"), summary.get("camera_vmd"))
+    inputs = run_input_paths(summary_path, summary)
+    if camera_path is None or inputs["model"] is None or inputs["motion"] is None or inputs["audio"] is None:
+        raise ValueError("This run's camera VMD, model, dance, or WAV is missing, so it cannot be rendered.")
+
+    from music_processing.run_unseen_mmd_timing_pipeline import _render_preview_video
+
+    render_summary = _render_preview_video(
+        output_dir=output_dir,
+        song_id=str(summary.get("song_id") or output_dir.name),
+        model_path=inputs["model"],
+        motion_vmd_path=inputs["motion"],
+        camera_vmd_path=camera_path,
+        wav_path=inputs["audio"],
+        duration_sec=float(summary.get("duration_sec") or 1.0),
+        fps=int(payload.get("render_fps") or 30),
+        width=int(payload.get("render_width") or 1280),
+        height=int(payload.get("render_height") or 720),
+        viewer_session_size=1,
+    )
+    if render_summary.get("status") != "ok":
+        raise RuntimeError(f"The SABA render failed: {render_summary.get('error') or render_summary}")
+
+    preview_path = Path(str(render_summary["preview_video"]))
+    summary["preview_video"] = str(preview_path)
+    shotplan_summary.update(preview_video=str(preview_path), render_preview=render_summary)
+    summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    preview_url = repo_url(preview_path)
+    with JOBS_LOCK:
+        for job in JOBS.values():
+            if Path(job.output_dir).resolve() == output_dir.resolve():
+                job.artifacts["preview_video"].update(status="ready", url=preview_url)
+                for stage in job.stages:
+                    if stage["id"] == "render_review":
+                        stage["status"] = "completed"
+                job.updated_at = time.time()
+    return {"status": "ok", "preview_video_url": preview_url, "render_summary": render_summary}
+
+
+RUN_ASSET_PREFIX = "/api/unseen/run/"
+
+
+def run_asset_path(output_root: Path, url_path: str) -> Path | None:
+    """File behind /api/unseen/run/<run>/<model|motion|audio>/<name>: a finished run's inputs, for the live preview.
+
+    Model requests may name any file under the model's folder, so its textures load next to it.
+    """
+
+    parts = unquote(url_path)[len(RUN_ASSET_PREFIX):].split("/", 2)
+    if len(parts) != 3 or parts[0] in {"", ".", ".."}:
+        return None
+    run, kind, rest = parts
+    summary_path = output_root / run / "summary.json"
+    if not summary_path.is_file():
+        return None
+    inputs = run_input_paths(summary_path, read_json_file(summary_path))
+    if kind in {"motion", "audio"}:
+        return inputs[kind]
+    if kind != "model" or inputs["model"] is None:
+        return None
+    model_dir = inputs["model"].parent.resolve()
+    candidate = (model_dir / rest).resolve()
+    try:
+        candidate.relative_to(model_dir)
+    except ValueError:
+        return None
+    return candidate if candidate.is_file() else None
+
+
+def run_asset_urls(summary_path: Path, summary: dict[str, Any]) -> dict[str, str | None]:
+    run = quote(summary_path.parent.name)
+    return {
+        f"{kind}_url": f"{RUN_ASSET_PREFIX}{run}/{kind}/{quote(path.name)}" if path is not None else None
+        for kind, path in run_input_paths(summary_path, summary).items()
+    }
+
+
+def list_results(output_root: Path) -> list[dict[str, Any]]:
+    """Finished runs under the output root that have a shot plan, newest first, with their saved edits."""
+
+    results: list[dict[str, Any]] = []
+    for summary_path in output_root.glob("*/summary.json"):
+        summary = read_json_file(summary_path)
+        shotplan_summary = summary.get("shotplan") if isinstance(summary.get("shotplan"), dict) else {}
+        plan_path = first_existing_path(
+            shotplan_summary.get("final_shotplan_json"),
+            shotplan_summary.get("optimization_json"),
+            summary.get("shot_plan_json"),
+        )
+        if plan_path is None:
+            continue
+        video_path = first_existing_path(summary.get("preview_video"), shotplan_summary.get("preview_video"))
+        camera_path = first_existing_path(shotplan_summary.get("final_camera_vmd"), summary.get("camera_vmd"))
+        edits = []
+        for edited_plan in sorted((summary_path.parent / "shotplan_edits").glob("shotplan_edit_*.json")):
+            if edited_plan.stem.endswith("_debug"):
+                continue
+            edited_vmd = edited_plan.with_suffix(".vmd")
+            edited_video = edited_plan.with_suffix(".mp4")
+            edits.append(
+                {
+                    "created_at": edited_plan.stat().st_mtime,
+                    "plan_url": repo_url(edited_plan),
+                    "vmd_url": repo_url(edited_vmd) if edited_vmd.exists() else None,
+                    "video_url": repo_url(edited_video) if edited_video.exists() else None,
+                }
+            )
+        results.append(
+            {
+                "song_id": summary.get("song_id") or summary_path.parent.name,
+                "summary_url": repo_url(summary_path),
+                "plan_url": repo_url(plan_path),
+                "video_url": repo_url(video_path) if video_path is not None else None,
+                "camera_vmd_url": repo_url(camera_path) if camera_path is not None else None,
+                "duration_sec": summary.get("duration_sec"),
+                "updated_at": summary_path.stat().st_mtime,
+                "edits": edits,
+                **run_asset_urls(summary_path, summary),
+            }
+        )
+    return sorted(results, key=lambda item: item["updated_at"], reverse=True)
 
 
 def run_pipeline_job(job_id: str, command: list[str], output_dir: Path) -> None:
@@ -918,6 +1321,7 @@ def build_command_from_form(
     pipeline_python: Path,
     upload_root: Path,
     output_root: Path,
+    model_library: Path,
     default_model_path: Path | None,
 ) -> tuple[str, Path, list[str], Path, str]:
     seed_name = field_text(form, "song_id") or field_text(form, "wav_path") or "unseen"
@@ -947,13 +1351,27 @@ def build_command_from_form(
 
     wav_path = wav_upload or existing_or_none(field_text(form, "wav_path"))
     vmd_path = vmd_upload or existing_or_none(field_text(form, "vmd_path"))
-    model_path = (
-        model_upload_in_texture_folder
-        or model_upload
-        or existing_or_none(field_text(form, "model_path"))
-        or model_folder_model
-    )
+    uploaded_model = model_upload_in_texture_folder or model_upload or model_folder_model
+    if uploaded_model is not None:
+        # Keep the upload in the model library; the page then offers it for the next runs.
+        source_root = model_folder_dir if uploaded_model.is_relative_to(model_folder_dir) else uploaded_model
+        uploaded_model = register_library_model(model_library, uploaded_model, source_root, move=True)
+    library_model = field_text(form, "library_model")
+    model_path = uploaded_model or existing_or_none(field_text(form, "model_path"))
+    if model_path is None and library_model not in {"", "upload", "default"}:
+        model_path = use_library_model(model_library, library_model)
     motion_json_path = motion_upload or existing_or_none(field_text(form, "motion_json_path"))
+    render_model_path = existing_or_none(field_text(form, "render_model_path"))
+    reuse_dir: Path | None = None
+    if field_text(form, "reuse_run"):
+        # Same inputs as an earlier run; the pipeline also reuses its preprocessing where the settings allow.
+        reuse_dir = resolve_run_dir(output_root, field_text(form, "reuse_run"))
+        earlier = reusable_inputs(reuse_dir)
+        wav_path = wav_path or earlier["wav"]
+        if vmd_path is None and motion_json_path is None:
+            vmd_path, motion_json_path = earlier["vmd"], earlier["motion_json"]
+        model_path = model_path or earlier["model"]
+        render_model_path = render_model_path or earlier["render_model"]
     if model_path is None and default_model_path is not None:
         model_path = default_model_path
 
@@ -971,6 +1389,12 @@ def build_command_from_form(
     song_base = field_text(form, "song_id") or wav_path.stem
     song_id = f"{slug(song_base)}_{job_id[-8:]}"
     output_dir = output_root / song_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+    recorded_inputs = dict(zip(WEB_INPUT_KEYS, (wav_path, vmd_path, motion_json_path, model_path, render_model_path)))
+    (output_dir / "web_inputs.json").write_text(
+        json.dumps({key: str(path) if path else None for key, path in recorded_inputs.items()}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     pipeline_mode = field_text(form, "pipeline_mode", "timing_only") or "timing_only"
 
     command = [
@@ -991,6 +1415,10 @@ def build_command_from_form(
         command.extend(["--motion-json", str(motion_json_path)])
     if model_path is not None:
         command.extend(["--model-path", str(model_path)])
+    if render_model_path is not None:
+        command.extend(["--render-model-path", str(render_model_path)])
+    if reuse_dir is not None:
+        command.extend(["--reuse-from", str(reuse_dir)])
 
     for field_name, flag in (
         ("target_dump_tool", "--target-dump-tool"),
@@ -1002,6 +1430,7 @@ def build_command_from_form(
         ("cut_selection_mode", "--cut-selection-mode"),
         ("fps", "--fps"),
         ("density_cut_percent", "--density-cut-percent"),
+        ("density_budget_scale", "--density-budget-scale"),
         ("cut_window_sec", "--cut-window-sec"),
         ("cut_min_gap_sec", "--cut-min-gap-sec"),
         ("cut_min_score", "--cut-min-score"),
@@ -1031,7 +1460,6 @@ def build_command_from_form(
         ("optimization_distance_level_duration_upper_key", "--optimization-distance-level-duration-upper-key"),
         ("shotplan_height_calibration_face_offset", "--shotplan-height-calibration-face-offset"),
         ("shotplan_height_calibration_chest_offset", "--shotplan-height-calibration-chest-offset"),
-        ("render_model_path", "--render-model-path"),
         ("render_preview_width", "--render-preview-width"),
         ("render_preview_height", "--render-preview-height"),
         ("render_preview_fps", "--render-preview-fps"),
@@ -1070,6 +1498,13 @@ def app_config(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def library_models_payload(library_root: Path) -> list[dict[str, Any]]:
+    return [
+        {key: meta.get(key) for key in ("id", "name", "file", "files", "last_used")}
+        for meta in list_library_models(library_root)
+    ]
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Serve the CuCaT web demo locally.")
     parser.add_argument("--host", default="127.0.0.1")
@@ -1082,6 +1517,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--upload-root", type=Path, default=DEFAULT_UPLOAD_ROOT)
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
+    parser.add_argument(
+        "--model-library",
+        type=Path,
+        default=DEFAULT_MODEL_LIBRARY,
+        help="Folder that keeps every uploaded model with its textures, so the page can offer them again.",
+    )
     parser.add_argument(
         "--default-model-path",
         type=Path,
@@ -1198,14 +1639,19 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlsplit(self.path)
-        if parsed.path == "/api/unseen/shotplan/render":
+        edit_handlers = {
+            "/api/unseen/shotplan/render": render_edited_shotplan,
+            "/api/unseen/shotplan/camera": live_camera_preview,
+            "/api/unseen/render": render_run_preview,
+        }
+        if parsed.path in edit_handlers:
             try:
                 length = int(self.headers.get("Content-Length", "0") or "0")
                 raw_body = self.rfile.read(length).decode("utf-8")
                 payload = json.loads(raw_body) if raw_body.strip() else {}
                 if not isinstance(payload, dict):
                     raise ValueError("Expected a JSON object payload.")
-                self.send_json(render_edited_shotplan(payload))
+                self.send_json(edit_handlers[parsed.path](payload))
             except Exception as exc:
                 self.send_json({"error": str(exc), "traceback": traceback.format_exc()}, status=HTTPStatus.BAD_REQUEST)
             return
@@ -1231,6 +1677,7 @@ class Handler(SimpleHTTPRequestHandler):
                 pipeline_python=self.app_args.pipeline_python,
                 upload_root=self.app_args.upload_root.resolve(),
                 output_root=self.app_args.output_root.resolve(),
+                model_library=self.app_args.model_library.resolve(),
                 default_model_path=self.app_args.default_model_path,
             )
             song_id = output_dir.name
@@ -1264,6 +1711,15 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/api/unseen/config":
             self.send_json(app_config(self.app_args))
             return
+        if path == "/api/unseen/inputs":
+            self.send_json(list_reusable_runs(self.app_args.output_root.resolve()))
+            return
+        if path == "/api/unseen/models":
+            self.send_json(library_models_payload(self.app_args.model_library.resolve()))
+            return
+        if path == "/api/unseen/results":
+            self.send_json(list_results(self.app_args.output_root.resolve()))
+            return
         if path == "/api/unseen/jobs":
             with JOBS_LOCK:
                 jobs = sorted(JOBS.values(), key=lambda job: job.created_at, reverse=True)
@@ -1284,10 +1740,20 @@ class Handler(SimpleHTTPRequestHandler):
         if static_path is not None:
             self.serve_static_file(static_path)
             return
+        if path.startswith(RUN_ASSET_PREFIX):
+            asset_path = run_asset_path(self.app_args.output_root.resolve(), path)
+            if asset_path is not None:
+                self.serve_static_file(asset_path)
+                return
         self.send_error(HTTPStatus.NOT_FOUND.value, "File not found")
 
     def do_HEAD(self) -> None:
         parsed = urlsplit(self.path)
+        if parsed.path.startswith(RUN_ASSET_PREFIX):
+            asset_path = run_asset_path(self.app_args.output_root.resolve(), parsed.path)
+            if asset_path is not None:
+                self.serve_static_file(asset_path, head_only=True)
+                return
         if parsed.path in {"", "/", "/unseen_mmd_pipeline_viewer.html", "/music_processing/unseen_mmd_pipeline_viewer.html"}:
             self.serve_file(VIEWER_PATH, head_only=True)
             return
@@ -1319,6 +1785,11 @@ def main() -> None:
     args = parse_args()
     args.upload_root.mkdir(parents=True, exist_ok=True)
     args.output_root.mkdir(parents=True, exist_ok=True)
+    args.model_library = args.model_library.resolve()
+    args.model_library.mkdir(parents=True, exist_ok=True)
+    imported = import_uploaded_models(args.upload_root.resolve(), args.model_library)
+    if imported:
+        print(f"Model library: added {imported} model upload(s) from {args.upload_root}", flush=True)
     if not PIPELINE_SCRIPT.exists():
         raise SystemExit(f"Pipeline script not found: {PIPELINE_SCRIPT}")
     if not VIEWER_PATH.exists():
@@ -1332,11 +1803,14 @@ def main() -> None:
     except ValueError:
         print("Warning: --output-root is outside the repository, so the page cannot link or play the results.", flush=True)
 
+    # Import the camera solver in the background so the editor's first live-preview edit does not wait for it.
+    threading.Thread(target=lambda: __import__("shotplan_transformer.infer_v3_cut_context_dcm_from_timing"), daemon=True).start()
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     server.app_args = args  # type: ignore[attr-defined]
     print(f"CuCaT demo: http://{args.host}:{args.port}/", flush=True)
     print(f"Pipeline Python: {args.pipeline_python}", flush=True)
     print(f"Output root: {args.output_root}", flush=True)
+    print(f"Model library: {args.model_library} ({len(list_library_models(args.model_library))} models)", flush=True)
     if args.default_model_path is not None:
         print(f"Default model: {args.default_model_path}", flush=True)
     try:

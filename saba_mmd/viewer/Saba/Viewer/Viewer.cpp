@@ -11,6 +11,7 @@
 #include <Saba/Base/Log.h>
 #include <Saba/Base/Path.h>
 #include <Saba/Base/Time.h>
+#include <Saba/Base/UnicodeUtil.h>
 #include <Saba/GL/GLSLUtil.h>
 #include <Saba/GL/GLShaderUtil.h>
 
@@ -2581,48 +2582,39 @@ namespace saba
 		return true;
 	}
 
-	bool Viewer::SaveCurrentFramePPM(const std::string& filename)
+	bool Viewer::ReadCurrentFrameRGB(std::vector<unsigned char>& rgb, int& width, int& height)
 	{
 		if (m_currentFrameBuffer == 0)
 		{
-			SABA_WARN("SaveCurrentFramePPM : Framebuffer not available.");
+			SABA_WARN("ReadCurrentFrameRGB : Framebuffer not available.");
 			return false;
 		}
 
-		const int width = m_currentFrameBufferWidth;
-		const int height = m_currentFrameBufferHeight;
+		width = m_currentFrameBufferWidth;
+		height = m_currentFrameBufferHeight;
 		if (width <= 0 || height <= 0)
 		{
-			SABA_WARN("SaveCurrentFramePPM : Invalid size {}x{}.", width, height);
+			SABA_WARN("ReadCurrentFrameRGB : Invalid size {}x{}.", width, height);
 			return false;
 		}
 
 		const size_t lineBytes = static_cast<size_t>(width) * 3;
 		std::vector<unsigned char> src(static_cast<size_t>(height) * lineBytes);
-		std::vector<unsigned char> dst(static_cast<size_t>(height) * lineBytes);
+		rgb.resize(src.size());
 
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, m_currentFrameBuffer);
 		glPixelStorei(GL_PACK_ALIGNMENT, 1);
 		glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, src.data());
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 
+		// OpenGL rows start at the bottom; video rows start at the top.
 		for (int y = 0; y < height; y++)
 		{
 			auto srcOffset = static_cast<size_t>(y) * lineBytes;
 			auto dstOffset = static_cast<size_t>(height - 1 - y) * lineBytes;
-			std::copy(src.begin() + srcOffset, src.begin() + srcOffset + lineBytes, dst.begin() + dstOffset);
+			std::copy(src.begin() + srcOffset, src.begin() + srcOffset + lineBytes, rgb.begin() + dstOffset);
 		}
-
-		std::ofstream ofs(filename, std::ios::binary);
-		if (!ofs)
-		{
-			SABA_WARN("SaveCurrentFramePPM : Failed to open [{}]", filename);
-			return false;
-		}
-
-		ofs << "P6\n" << width << " " << height << "\n255\n";
-		ofs.write(reinterpret_cast<const char*>(dst.data()), static_cast<std::streamsize>(dst.size()));
-		return ofs.good();
+		return true;
 	}
 
 	bool Viewer::ExportVideo(
@@ -2651,15 +2643,6 @@ namespace saba
 		if (frameCount <= 0)
 		{
 			SABA_WARN("ExportVideo : frameCount is zero.");
-			return false;
-		}
-
-		const auto workDir = m_context.GetWorkDir();
-		const auto timestamp = static_cast<uint64_t>(GetTime() * 1000.0);
-		const auto frameDir = PathUtil::Normalize(PathUtil::Combine(workDir, "export_frames_" + std::to_string(timestamp)));
-		if (!EnsureDirectory(frameDir))
-		{
-			SABA_WARN("ExportVideo : Failed to create frame directory [{}]", frameDir);
 			return false;
 		}
 
@@ -2702,10 +2685,44 @@ namespace saba
 
 		Draw();
 
+		const int frameWidth = m_currentFrameBufferWidth;
+		const int frameHeight = m_currentFrameBufferHeight;
+
+		// Frames go to ffmpeg's stdin as raw RGB: nothing is written to disk, and ffmpeg encodes while the
+		// next frames are drawn. A wide-character pipe also keeps non-ASCII WAV and MP4 paths intact on Windows.
+		std::ostringstream ffmpegCmd;
+		ffmpegCmd
+			<< "ffmpeg -y -f rawvideo -pix_fmt rgb24 -video_size " << frameWidth << "x" << frameHeight
+			<< " -framerate " << fps << " -i -";
+
+		if (!wavPath.empty())
+		{
+			ffmpegCmd << " -i " << EscapeShellArg(PathUtil::Normalize(wavPath));
+		}
+
+		ffmpegCmd << " -c:v libx264 -pix_fmt yuv420p";
+		if (!wavPath.empty())
+		{
+			ffmpegCmd << " -c:a aac -shortest";
+		}
+		ffmpegCmd << " " << EscapeShellArg(PathUtil::Normalize(videoPath));
+
+		SABA_INFO("ExportVideo : Run [{}]", ffmpegCmd.str());
+#ifdef _WIN32
+		FILE* ffmpeg = _wpopen(ToWString(ffmpegCmd.str()).c_str(), L"wb");
+#else
+		FILE* ffmpeg = popen(ffmpegCmd.str().c_str(), "w");
+#endif
+		if (ffmpeg == nullptr)
+		{
+			SABA_WARN("ExportVideo : Failed to start ffmpeg.");
+		}
+
 		SABA_INFO("ExportVideo : start frame capture. frames={} fps={} duration={}", frameCount, fps, durationSec);
 
-		bool captureSucceeded = true;
-		for (int i = 0; i < frameCount; i++)
+		bool captureSucceeded = (ffmpeg != nullptr);
+		std::vector<unsigned char> rgb;
+		for (int i = 0; captureSucceeded && i < frameCount; i++)
 		{
 			Update();
 			if (m_context.IsShadowEnabled())
@@ -2714,12 +2731,12 @@ namespace saba
 			}
 			Draw();
 
-			std::ostringstream frameName;
-			frameName << "frame_" << std::setfill('0') << std::setw(6) << i << ".ppm";
-			auto framePath = PathUtil::Normalize(PathUtil::Combine(frameDir, frameName.str()));
-			if (!SaveCurrentFramePPM(framePath))
+			int width = 0;
+			int height = 0;
+			if (!ReadCurrentFrameRGB(rgb, width, height) || width != frameWidth || height != frameHeight ||
+				std::fwrite(rgb.data(), 1, rgb.size(), ffmpeg) != rgb.size())
 			{
-				SABA_WARN("ExportVideo : Failed to save frame [{}]", framePath);
+				SABA_WARN("ExportVideo : Failed to send frame {} to ffmpeg.", i);
 				captureSucceeded = false;
 				break;
 			}
@@ -2744,52 +2761,32 @@ namespace saba
 		}
 		m_prevTime = GetTime();
 
+		// Closing the pipe ends ffmpeg's input; it then finishes the file and exits.
+		int ffmpegExitCode = -1;
+		if (ffmpeg != nullptr)
+		{
+#ifdef _WIN32
+			ffmpegExitCode = _pclose(ffmpeg);
+#else
+			ffmpegExitCode = pclose(ffmpeg);
+#endif
+		}
+
 		if (!captureSucceeded)
 		{
+			// ffmpeg still closes a file for the frames it got; do not leave a truncated video behind.
+#ifdef _WIN32
+			_wremove(ToWString(PathUtil::Normalize(videoPath)).c_str());
+#else
+			std::remove(PathUtil::Normalize(videoPath).c_str());
+#endif
 			return false;
 		}
-
-		std::ostringstream inputPattern;
-		inputPattern << PathUtil::Normalize(PathUtil::Combine(frameDir, "frame_%06d.ppm"));
-
-		std::ostringstream ffmpegCmd;
-		ffmpegCmd
-			<< "ffmpeg -y -framerate " << fps
-			<< " -i " << EscapeShellArg(inputPattern.str());
-
-		if (!wavPath.empty())
-		{
-			ffmpegCmd << " -i " << EscapeShellArg(PathUtil::Normalize(wavPath));
-		}
-
-		ffmpegCmd << " -c:v libx264 -pix_fmt yuv420p";
-		if (!wavPath.empty())
-		{
-			ffmpegCmd << " -c:a aac -shortest";
-		}
-		ffmpegCmd << " " << EscapeShellArg(PathUtil::Normalize(videoPath));
-
-		SABA_INFO("ExportVideo : Run [{}]", ffmpegCmd.str());
-		int ffmpegExitCode = std::system(ffmpegCmd.str().c_str());
 		if (ffmpegExitCode != 0)
 		{
 			SABA_WARN("ExportVideo : ffmpeg failed with code {}", ffmpegExitCode);
 			return false;
 		}
-
-		for (int i = 0; i < frameCount; i++)
-		{
-			std::ostringstream frameName;
-			frameName << "frame_" << std::setfill('0') << std::setw(6) << i << ".ppm";
-			auto framePath = PathUtil::Normalize(PathUtil::Combine(frameDir, frameName.str()));
-			std::remove(framePath.c_str());
-		}
-
-#ifdef _WIN32
-		_rmdir(frameDir.c_str());
-#else
-		rmdir(frameDir.c_str());
-#endif
 
 		SABA_INFO("ExportVideo : Succeeded [{}]", videoPath);
 		return true;

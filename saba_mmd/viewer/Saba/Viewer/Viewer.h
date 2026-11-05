@@ -201,7 +201,7 @@ namespace saba
 
 		bool ClearAnimation(ModelDrawer* modelDrawer);
 		bool ClearSceneAnimation();
-		bool SaveCurrentFramePPM(const std::string& filename);
+		bool ReadCurrentFrameRGB(std::vector<unsigned char>& rgb, int& width, int& height);
 		bool ExportVideo(
 			const std::string& videoPath,
 			double durationSec,

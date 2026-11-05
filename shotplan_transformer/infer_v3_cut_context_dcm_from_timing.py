@@ -31,6 +31,7 @@ from camera_autoshot.reverse_v3.solver_v3 import CameraSolveConfigV3, solve_came
 from camera_autoshot.reverse_v3.spec_v3 import ShotKeyframeRequestV3
 from camera_autoshot.vmd import write_camera_vmd
 
+from shotplan_transformer.compact_dance import compact_dance_feature_names
 from shotplan_transformer.dataset import load_manifest, load_normalization_stats
 from shotplan_transformer.infer_to_plans import _device_from_arg, _window_indices
 from shotplan_transformer.infer_v3_dcm_from_timing import (
@@ -89,6 +90,10 @@ def _checkpoint_manifest(checkpoint: dict[str, Any]) -> dict[str, Any]:
     manifest: dict[str, Any] = {}
     if dataset_root is not None and (dataset_root / "manifest.json").exists():
         manifest = load_manifest(dataset_root)
+    elif int(checkpoint["config"]["dance_dim"]) == len(compact_dance_feature_names()):
+        # Released checkpoints ship without their training dataset. A 168-D dance
+        # input is the compact set taken from the 427-D source features.
+        manifest["dance_feature_set"] = "compact"
     manifest["label_fields"] = list(checkpoint["fields"])
     manifest["vocabularies"] = checkpoint["vocabularies"]
     manifest["window_size"] = int(checkpoint["config"]["window_size"])
@@ -540,15 +545,25 @@ def _write_vmd_from_plan(
     stabilize_forward: bool = False,
 ) -> None:
     payload = _load_json(plan_path)
+    provider = JsonFrameTargetProvider(targets_path, stabilize_forward=stabilize_forward)
+    solved = _solve_plan_camera(payload, provider, solve_config)
+    write_camera_vmd(solved, output_vmd, model_name="V3 Cut Context Shotplan")
+    _write_json(debug_path, [asdict(key) for key in solved])
+
+
+def _solve_plan_camera(
+    payload: dict[str, Any],
+    provider: JsonFrameTargetProvider,
+    solve_config: CameraSolveConfigV3 | None = None,
+) -> list[Any]:
+    """Solve a shot-plan payload into camera keys; the web editor reuses this with a cached provider."""
+
     keyframe_rows = [row for row in payload.get("keyframes", []) if isinstance(row, dict)]
     if uses_close_dense_distance_schema(payload):
         apply_close_dense_distance_schema_from_payload(payload)
         keyframe_rows = [internalize_close_dense_row(row) for row in keyframe_rows]
     requests = [ShotKeyframeRequestV3.from_dict(row) for row in keyframe_rows]
-    provider = JsonFrameTargetProvider(targets_path, stabilize_forward=stabilize_forward)
-    solved = solve_camera_timeline_v3(provider, requests, solve_config or CameraSolveConfigV3())
-    write_camera_vmd(solved, output_vmd, model_name="V3 Cut Context Shotplan")
-    _write_json(debug_path, [asdict(key) for key in solved])
+    return solve_camera_timeline_v3(provider, requests, solve_config or CameraSolveConfigV3())
 
 
 def _close_dense_distance_schema_for_manifest(manifest: dict[str, Any]) -> dict[str, object] | None:

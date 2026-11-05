@@ -4,863 +4,1482 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CuCaT Demo</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='7' y='7' width='18' height='18' rx='2' transform='rotate(45 16 16)' fill='%23e5243b'/%3E%3C/svg%3E" />
+  <!-- three.js for the Edit tab's live 3D preview (loaded only when that view opens). -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --ink: #18211d;
-      --muted: #667064;
-      --paper: #f6eedf;
-      --panel: rgba(255, 250, 240, 0.88);
-      --line: #dacdb7;
-      --accent: #c8522d;
-      --accent2: #147e72;
-      --danger: #b33636;
-      --ok: #247346;
+      color-scheme: light;
+      --bg: #fbfaf7;
+      --surface: #ffffff;
+      --panel: #f2f0eb;
+      --line: #e6e3dc;
+      --line-2: #d3cfc6;
+      --ink: #16181d;
+      --ink-2: #474b55;
+      --ink-3: #7a7f89;
+      --cut: #e5243b;
+      --cut-soft: rgba(229, 36, 59, 0.1);
+      --trans: #1f6fe0;
+      --trans-soft: rgba(31, 111, 224, 0.1);
+      --gold: #c7860f;
+      --gold-soft: rgba(199, 134, 15, 0.12);
+      --ok: #12a36b;
+      --ok-soft: rgba(18, 163, 107, 0.12);
+      --radius: 14px;
+      --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+      --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+      --mono: "IBM Plex Mono", Consolas, ui-monospace, monospace;
     }
     * { box-sizing: border-box; }
+    html, body { margin: 0; }
     body {
-      margin: 0;
       min-height: 100vh;
+      background: var(--bg);
       color: var(--ink);
-      background:
-        radial-gradient(circle at 12% 10%, rgba(200, 82, 45, 0.22), transparent 28rem),
-        radial-gradient(circle at 86% 16%, rgba(20, 126, 114, 0.18), transparent 24rem),
-        linear-gradient(135deg, #fbf4e5 0%, #eaf1e7 100%);
-      font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+      font: 14px/1.5 var(--sans);
+      -webkit-font-smoothing: antialiased;
     }
+    a { color: inherit; }
+    [hidden] { display: none !important; }
+    .muted { color: var(--ink-3); }
+    .spacer { flex: 1; }
+
+    /* ---------- nav ---------- */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(251, 250, 247, 0.88);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--line);
+    }
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      max-width: 1440px;
+      height: 58px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font: 800 19px var(--display);
+      letter-spacing: -0.02em;
+      text-decoration: none;
+    }
+    .brand i {
+      width: 10px;
+      height: 10px;
+      background: var(--cut);
+      transform: rotate(45deg);
+      border-radius: 1px;
+    }
+    .brand span { color: var(--ink-3); font-weight: 600; }
+    .tabs { display: flex; gap: 4px; height: 100%; }
+    .tabs button {
+      position: relative;
+      border: 0;
+      background: none;
+      padding: 0 12px;
+      color: var(--ink-3);
+      font: 600 14px var(--sans);
+      cursor: pointer;
+    }
+    .tabs button:hover { color: var(--ink); }
+    .tabs button[aria-selected="true"] { color: var(--ink); }
+    .tabs button[aria-selected="true"]::after {
+      content: "";
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: -1px;
+      height: 2px;
+      background: var(--ink);
+    }
+    .nav-link {
+      margin-left: auto;
+      color: var(--ink-2);
+      font-weight: 500;
+      text-decoration: none;
+    }
+    .nav-link:hover { color: var(--ink); }
+
     main {
-      width: min(1320px, calc(100vw - 28px));
-      margin: 22px auto 44px;
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px 24px 64px;
     }
-    h1 {
+    .page-intro { margin: 0 0 20px; }
+    .page-intro h1 {
       margin: 0;
-      letter-spacing: -0.045em;
-      font-size: clamp(30px, 4vw, 56px);
-      line-height: 0.95;
+      font: 800 clamp(26px, 3vw, 34px)/1.1 var(--display);
+      letter-spacing: -0.03em;
     }
-    .subtitle {
-      margin-top: 8px;
-      color: var(--muted);
-      max-width: 900px;
-      line-height: 1.55;
-    }
-    .layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
-      gap: 16px;
-      align-items: start;
-      margin-top: 18px;
-    }
+    .page-intro p { margin: 6px 0 0; max-width: 760px; color: var(--ink-2); }
+
+    /* ---------- cards ---------- */
     .card {
-      border: 1px solid rgba(24, 33, 29, 0.12);
-      border-radius: 24px;
-      background: var(--panel);
-      box-shadow: 0 16px 42px rgba(34, 31, 26, 0.10);
-      padding: 17px;
-      backdrop-filter: blur(10px);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
     }
-    .card h2 {
-      margin: 0 0 12px;
-      letter-spacing: -0.035em;
-      font-size: 22px;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+    .card + .card { margin-top: 14px; }
+    .card-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
       gap: 12px;
+      margin-bottom: 14px;
     }
-    label {
-      display: grid;
-      gap: 5px;
-      font-size: 12px;
-      color: var(--muted);
-      font-weight: 700;
-      letter-spacing: 0.02em;
+    h2 {
+      margin: 0;
+      font: 700 16px var(--display);
+      letter-spacing: -0.01em;
+    }
+    .eyebrow {
+      color: var(--ink-3);
+      font: 500 11px var(--mono);
+      letter-spacing: 0.06em;
       text-transform: uppercase;
     }
-    input, select, button {
+
+    /* ---------- controls ---------- */
+    input, select, textarea {
       width: 100%;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: rgba(255, 255, 255, 0.55);
+      min-height: 36px;
+      border: 1px solid var(--line-2);
+      border-radius: 9px;
+      background: var(--surface);
       color: var(--ink);
-      padding: 10px 12px;
-      font: inherit;
-      font-size: 14px;
-      text-transform: none;
-      letter-spacing: normal;
+      padding: 7px 10px;
+      font: 14px var(--sans);
     }
-    input[type="file"] { padding: 8px; }
-    .drop-zone {
+    input:focus, select:focus { outline: 2px solid var(--trans-soft); border-color: var(--trans); }
+    input[type="checkbox"], input[type="radio"] { width: auto; min-height: 0; }
+    input[type="number"] { font-family: var(--mono); font-size: 13px; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 38px;
+      padding: 0 16px;
+      border: 1px solid var(--line-2);
+      border-radius: 10px;
+      background: var(--panel);
+      color: var(--ink);
+      font: 600 14px var(--sans);
+      text-decoration: none;
+      white-space: nowrap;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn:hover { border-color: var(--ink-3); }
+    .btn.primary { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+    .btn.primary:hover { background: #000; }
+    .btn.ghost { background: transparent; }
+    .btn.small { min-height: 32px; padding: 0 12px; font-size: 13px; }
+    .btn:disabled, .btn.disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+    .link-btn {
+      border: 0;
+      background: none;
+      padding: 0;
+      color: var(--trans);
+      font: 500 13px var(--sans);
+      cursor: pointer;
+    }
+    .link-btn:hover { text-decoration: underline; }
+
+    /* ---------- generate layout ---------- */
+    .gen-layout {
+      display: grid;
+      grid-template-columns: minmax(360px, 440px) minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+    .controls { display: flex; flex-direction: column; }
+
+    .file-list { display: grid; gap: 8px; }
+    .file-row {
       position: relative;
-      border: 1.5px dashed rgba(20, 126, 114, 0.42);
-      border-radius: 18px;
-      padding: 12px;
-      background: rgba(255, 255, 255, 0.34);
-      transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px dashed var(--line-2);
+      border-radius: 11px;
+      background: var(--bg);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
     }
-    .drop-zone input[type="file"] {
-      background: rgba(255, 255, 255, 0.66);
+    .file-row:hover { border-color: var(--ink-3); }
+    .file-row.dragging { border-color: var(--trans); background: var(--trans-soft); }
+    .file-row.has-file { border-style: solid; border-color: var(--line); background: var(--surface); }
+    .file-row input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+    .file-type {
+      display: grid;
+      place-items: center;
+      height: 34px;
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--ink-2);
+      font: 500 11px var(--mono);
+      letter-spacing: 0.04em;
     }
-    .drop-zone .drop-copy {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 650;
-      letter-spacing: normal;
-      text-transform: none;
-    }
-    .drop-zone .file-name {
-      color: var(--accent2);
-      font-size: 13px;
-      font-weight: 800;
-      letter-spacing: normal;
+    .file-row.has-file .file-type { background: var(--ink); color: var(--bg); }
+    .file-main { display: grid; min-width: 0; }
+    .file-main b { font-weight: 600; }
+    .file-main b em { color: var(--ink-3); font-style: normal; font-weight: 400; }
+    .file-name {
       overflow: hidden;
+      color: var(--ink-3);
+      font-size: 13px;
       text-overflow: ellipsis;
-      text-transform: none;
       white-space: nowrap;
     }
-    .drop-zone.dragging,
-    .drop-zone.has-file {
-      border-color: var(--accent2);
-      background: rgba(20, 126, 114, 0.10);
+    .file-row.has-file .file-name { color: var(--ink-2); font-family: var(--mono); font-size: 12px; }
+    .source-pick { display: grid; gap: 8px; margin-bottom: 8px; }
+    .source-pick .field-help { margin: -2px 2px 0; font-family: var(--mono); font-size: 12px; }
+    .model-pick { cursor: default; }
+    .model-pick select {
+      min-height: 0;
+      margin: 1px 0 0 -3px;
+      padding: 1px 0 1px 2px;
+      border: 0;
+      background: transparent;
+      color: var(--ink-2);
+      font: 12px var(--mono);
+      cursor: pointer;
     }
-    .drop-zone.dragging {
-      transform: translateY(-1px);
-    }
-    .wide { grid-column: 1 / -1; }
-    .row {
+
+    .field { display: grid; gap: 8px; }
+    .field + .field { margin-top: 16px; }
+    .field-label {
       display: flex;
-      gap: 10px;
       align-items: center;
-      flex-wrap: wrap;
+      gap: 6px;
+      font-weight: 600;
+    }
+    .field-help { margin: 0; color: var(--ink-3); font-size: 13px; line-height: 1.45; }
+    .seg {
+      display: grid;
+      grid-auto-columns: 1fr;
+      grid-auto-flow: column;
+      gap: 2px;
+      padding: 3px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--panel);
+    }
+    .seg label { position: relative; cursor: pointer; }
+    .seg input { position: absolute; opacity: 0; pointer-events: none; }
+    .seg span {
+      display: block;
+      padding: 7px 10px;
+      border-radius: 8px;
+      color: var(--ink-3);
+      font-weight: 600;
+      text-align: center;
+      transition: background 0.15s, color 0.15s;
+    }
+    .seg input:checked + span { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(22, 24, 29, 0.12); }
+    .seg input:focus-visible + span { outline: 2px solid var(--trans); }
+    .seg.small span { padding: 4px 10px; font-size: 13px; }
+    .slider-row { display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 12px; align-items: center; }
+    .number-unit { position: relative; }
+    .number-unit input { padding-right: 24px; }
+    .number-unit.times::after { content: "×"; }
+    .number-unit::after {
+      content: "%";
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--ink-3);
+      font: 13px var(--mono);
+    }
+    input[type="range"] { padding: 0; border: 0; min-height: 24px; accent-color: var(--ink); background: none; }
+    .ratio-readout { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); }
+    .ratio-readout b { font: 500 13px var(--mono); color: var(--ink); }
+
+    /* ---------- advanced ---------- */
+    details.group { border-top: 1px solid var(--line); }
+    details.group:last-of-type { border-bottom: 1px solid var(--line); }
+    details.group > summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 2px;
+      font-weight: 600;
+      list-style: none;
+      cursor: pointer;
+    }
+    details.group > summary::-webkit-details-marker { display: none; }
+    details.group > summary::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-right: 1.5px solid var(--ink-3);
+      border-bottom: 1.5px solid var(--ink-3);
+      transform: rotate(-45deg);
+      transition: transform 0.15s;
+    }
+    details.group[open] > summary::before { transform: rotate(45deg); }
+    .changed-count {
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: var(--gold-soft);
+      color: var(--gold);
+      font: 500 11px var(--mono);
+    }
+    .group-note { margin: 0 0 12px; color: var(--ink-3); font-size: 13px; }
+    .params {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px 14px;
+      padding: 2px 2px 16px;
+    }
+    .param { display: grid; gap: 5px; align-content: start; min-width: 0; }
+    .param.wide { grid-column: 1 / -1; }
+    .param-label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--ink-2);
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .param.changed .param-label::after {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--gold);
     }
     .check {
       display: flex;
       align-items: center;
       gap: 8px;
-      color: var(--ink);
-      font-size: 14px;
-      font-weight: 600;
-      letter-spacing: normal;
-      text-transform: none;
-    }
-    .check input { width: auto; }
-    button {
-      cursor: pointer;
-      background: var(--ink);
-      border-color: var(--ink);
-      color: #fffaf0;
-      font-weight: 800;
-    }
-    button.secondary {
-      background: transparent;
-      color: var(--ink);
-      border-color: var(--line);
-    }
-    button:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-    .hint {
-      color: var(--muted);
+      color: var(--ink-2);
       font-size: 13px;
-      line-height: 1.45;
-      margin-top: 8px;
+      font-weight: 500;
+      cursor: pointer;
     }
-    .status {
+    .check.changed { color: var(--gold); }
+    .tip {
+      display: inline-grid;
+      place-items: center;
+      flex: 0 0 auto;
+      width: 16px;
+      height: 16px;
+      padding: 0;
+      border: 1px solid var(--line-2);
+      border-radius: 50%;
+      background: var(--surface);
+      color: var(--ink-3);
+      font: 600 10px var(--sans);
+      cursor: help;
+    }
+    .tip::before { content: "i"; }
+    .tip:hover, .tip:focus-visible { border-color: var(--ink); color: var(--ink); outline: none; }
+    .tooltip {
+      position: fixed;
+      z-index: 100;
+      max-width: 300px;
+      padding: 9px 11px;
+      border-radius: 9px;
+      background: var(--ink);
+      color: #f4f3ef;
+      font-size: 12.5px;
+      line-height: 1.5;
+      box-shadow: 0 10px 30px rgba(22, 24, 29, 0.25);
+      pointer-events: none;
+    }
+    .tooltip b { color: #fff; }
+    .tooltip .tip-default { display: block; margin-top: 5px; color: #b9bcc4; font: 11.5px var(--mono); }
+
+    .run-bar {
+      position: sticky;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 14px;
+      padding: 12px 0;
+      background: linear-gradient(to top, var(--bg) 70%, rgba(251, 250, 247, 0));
+    }
+    .run-bar .btn { min-width: 160px; }
+    .form-note { color: var(--ink-3); font-size: 13px; }
+    .form-note.bad { color: var(--cut); }
+
+    /* ---------- results ---------- */
+    .results {
+      position: sticky;
+      top: 74px;
+      max-height: calc(100vh - 90px);
+      min-width: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+    }
+    .result-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .result-head h2 { margin-top: 2px; font-size: 20px; word-break: break-all; }
+    .result-head-right { display: flex; align-items: center; gap: 10px; }
+    .result-head-right select { width: 230px; }
+    .pill {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      padding: 3px 10px;
       border-radius: 999px;
-      padding: 7px 11px;
-      background: rgba(24, 33, 29, 0.08);
-      color: var(--ink);
-      font-weight: 800;
-      font-size: 13px;
+      background: var(--panel);
+      color: var(--ink-2);
+      font: 500 12px var(--mono);
+      white-space: nowrap;
     }
-    .status.running { color: var(--accent); background: rgba(200, 82, 45, 0.12); }
-    .status.completed { color: var(--ok); background: rgba(36, 115, 70, 0.13); }
-    .status.failed { color: var(--danger); background: rgba(179, 54, 54, 0.13); }
-    .progress-panel {
-      margin-top: 12px;
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 12px;
-      background:
-        linear-gradient(135deg, rgba(36, 115, 70, 0.10), rgba(255, 255, 255, 0.36)),
-        rgba(255, 255, 255, 0.42);
-    }
-    .progress-top, .progress-meta {
+    .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+    .pill.running, .pill.queued { background: var(--trans-soft); color: var(--trans); }
+    .pill.running::before { animation: pulse 1.2s ease-in-out infinite; }
+    .pill.completed { background: var(--ok-soft); color: var(--ok); }
+    .pill.failed { background: var(--cut-soft); color: var(--cut); }
+    @keyframes pulse { 50% { opacity: 0.25; } }
+
+    .progress { margin-top: 14px; }
+    .progress-track { height: 4px; overflow: hidden; border-radius: 999px; background: var(--panel); }
+    .progress-track i { display: block; width: 0; height: 100%; background: var(--ink); transition: width 0.5s ease; }
+    .progress.failed .progress-track i { background: var(--cut); }
+    .progress.completed .progress-track i { background: var(--ok); }
+    .progress-meta {
       display: flex;
       justify-content: space-between;
-      gap: 10px;
-      align-items: center;
+      gap: 12px;
+      margin-top: 7px;
+      color: var(--ink-3);
+      font-size: 12.5px;
     }
-    .progress-top b {
-      font-size: 14px;
-      letter-spacing: -0.01em;
-    }
-    .progress-top span, .progress-meta {
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.35;
-    }
-    .progress-track {
-      height: 12px;
-      margin: 10px 0 8px;
-      border-radius: 999px;
+    .progress-meta .step { overflow: hidden; color: var(--ink-2); text-overflow: ellipsis; white-space: nowrap; }
+    .progress-meta .nums { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+
+    .video-frame {
+      position: relative;
+      margin-top: 14px;
+      aspect-ratio: 16 / 9;
       overflow: hidden;
-      background: rgba(24, 33, 29, 0.10);
-      box-shadow: inset 0 0 0 1px rgba(24, 33, 29, 0.06);
+      border-radius: 11px;
+      background: #1c1d21;
     }
-    .progress-track i {
+    .video-frame video { display: block; width: 100%; height: 100%; background: #111; }
+    .result-audio { display: block; width: 100%; height: 36px; margin-top: 8px; }
+    .video-empty {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: #9da1aa;
+      text-align: center;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 1px;
+      margin-top: 14px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: var(--line);
+    }
+    .stats:empty, .actions:empty { display: none; }
+    .stat { padding: 10px 12px; background: var(--surface); min-width: 0; }
+    .stat b {
       display: block;
-      width: 0%;
-      height: 100%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, var(--accent2), var(--ok));
-      transition: width 0.5s ease;
-    }
-    .progress-panel.failed .progress-track i {
-      background: linear-gradient(90deg, var(--accent), var(--danger));
-    }
-    .progress-step {
-      min-width: 0;
       overflow: hidden;
+      font: 600 17px var(--display);
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .links {
-      display: grid;
-      gap: 8px;
-      margin-top: 12px;
-      min-width: 0;
-      overflow: hidden;
-      overflow-wrap: anywhere;
-      word-break: break-word;
+    .stat small { color: var(--ink-3); font-size: 12px; }
+    .stat.cut b { color: var(--cut); }
+    .stat.trans b { color: var(--trans); }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .error-box {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border: 1px solid rgba(229, 36, 59, 0.3);
+      border-radius: 11px;
+      background: var(--cut-soft);
+      color: #9b1424;
+      font-size: 13px;
     }
-    .links span,
-    .links a,
-    .links code {
-      min-width: 0;
-      max-width: 100%;
-      overflow-wrap: anywhere;
-      word-break: break-word;
-      white-space: normal;
-    }
-    .links code {
-      display: inline;
-      font-size: 12px;
-    }
-    a {
-      color: var(--accent2);
-      font-weight: 800;
-      text-decoration: none;
-    }
-    a:hover { text-decoration: underline; }
-    pre {
-      margin: 12px 0 0;
-      min-height: 280px;
-      max-height: 56vh;
+    .error-box pre {
+      margin: 8px 0 0;
+      max-height: 180px;
       overflow: auto;
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 12px;
-      background: #171d19;
-      color: #e9f3ea;
-      font: 12px/1.5 Consolas, "Cascadia Mono", monospace;
+      color: var(--ink-2);
+      font: 12px/1.45 var(--mono);
       white-space: pre-wrap;
     }
-    .summary {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-      margin-top: 12px;
-    }
-    .stat {
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 10px;
-      background: rgba(255, 255, 255, 0.46);
-    }
-    .stat b { display: block; font-size: 18px; }
-    .stat small { color: var(--muted); }
-    .jobs {
-      display: grid;
-      gap: 8px;
-      margin-top: 12px;
-    }
-    .stage-list, .artifact-list {
-      display: grid;
-      gap: 8px;
-      margin-top: 12px;
-    }
-    .stage-item, .artifact-item {
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 10px;
-      background: rgba(255, 255, 255, 0.42);
-    }
-    .stage-item {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 9px;
-      align-items: start;
-    }
-    .dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 999px;
-      margin-top: 5px;
-      background: rgba(24, 33, 29, 0.22);
-    }
-    .dot.running { background: var(--accent); box-shadow: 0 0 0 4px rgba(200, 82, 45, 0.12); }
-    .dot.completed, .dot.ready { background: var(--ok); box-shadow: 0 0 0 4px rgba(36, 115, 70, 0.12); }
-    .dot.failed, .dot.missing { background: var(--danger); box-shadow: 0 0 0 4px rgba(179, 54, 54, 0.12); }
-    .dot.planned, .dot.pending, .dot.skipped { background: #9f927e; }
-    .stage-item b, .artifact-item b { display: block; font-size: 14px; }
-    .stage-item small, .artifact-item small { color: var(--muted); line-height: 1.4; }
-    .timing-list {
-      display: grid;
-      gap: 8px;
-      margin-top: 12px;
-    }
-    .timing-details {
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 10px;
-      background: rgba(255, 255, 255, 0.42);
-    }
-    .timing-details summary {
-      cursor: pointer;
+
+    details.fold { padding: 0; }
+    details.fold > summary {
       display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      font-weight: 900;
-      list-style: none;
-    }
-    .timing-details summary::-webkit-details-marker { display: none; }
-    .timing-details summary::after {
-      content: "Show details";
-      color: var(--accent2);
-      flex: 0 0 auto;
-      font-size: 12px;
-    }
-    .timing-details[open] summary::after { content: "Hide details"; }
-    .timing-item {
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 10px;
-      background: rgba(255, 255, 255, 0.42);
-    }
-    .timing-item header {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      font-size: 13px;
-      font-weight: 800;
-    }
-    .timing-item small {
-      color: var(--muted);
-    }
-    .timing-bar {
-      height: 7px;
-      margin-top: 7px;
-      overflow: hidden;
-      border-radius: 999px;
-      background: rgba(24, 33, 29, 0.08);
-    }
-    .timing-bar i {
-      display: block;
-      height: 100%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, var(--accent2), var(--accent));
-    }
-    .artifact-item {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 8px;
       align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      font: 700 15px var(--display);
+      list-style: none;
+      cursor: pointer;
     }
-    .artifact-status {
-      border-radius: 999px;
-      padding: 4px 8px;
-      background: rgba(24, 33, 29, 0.08);
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 800;
+    details.fold > summary::-webkit-details-marker { display: none; }
+    details.fold > summary::after {
+      content: "";
+      width: 7px;
+      height: 7px;
+      margin-left: auto;
+      border-right: 1.5px solid var(--ink-3);
+      border-bottom: 1.5px solid var(--ink-3);
+      transform: rotate(45deg);
+      transition: transform 0.15s;
     }
-    .preview-panel {
+    details.fold[open] > summary::after { transform: rotate(-135deg); }
+    details.fold > summary .muted { font: 400 13px var(--sans); }
+    .fold-body { padding: 0 18px 18px; }
+
+    .stage-list { display: grid; gap: 2px; }
+    .stage {
+      display: grid;
+      grid-template-columns: 14px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .stage:last-child { border-bottom: 0; }
+    .stage .name { font-weight: 600; }
+    .stage .desc { color: var(--ink-3); font-size: 12.5px; }
+    .stage .state { color: var(--ink-3); font: 12px var(--mono); }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line-2); }
+    .dot.running { background: var(--trans); animation: pulse 1.2s ease-in-out infinite; }
+    .dot.completed, .dot.ready, .dot.ok { background: var(--ok); }
+    .dot.failed, .dot.missing { background: var(--cut); }
+    .timing-total { display: flex; align-items: baseline; gap: 8px; margin: 18px 0 8px; }
+    .timing-total b { font: 600 18px var(--display); }
+    .timing-row {
+      display: grid;
+      grid-template-columns: minmax(0, 190px) minmax(0, 1fr) 64px;
+      gap: 10px;
+      align-items: center;
+      padding: 3px 0;
+      font-size: 12.5px;
+    }
+    .timing-row span:first-child { overflow: hidden; color: var(--ink-2); text-overflow: ellipsis; white-space: nowrap; }
+    .timing-row .bar { height: 6px; border-radius: 999px; background: var(--panel); overflow: hidden; }
+    .timing-row .bar i { display: block; height: 100%; border-radius: inherit; background: var(--ink-3); }
+    .timing-row .sec { font: 12px var(--mono); text-align: right; color: var(--ink-2); }
+    .file-links { display: grid; gap: 1px; }
+    .file-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .file-link:last-child { border-bottom: 0; }
+    .file-link a { font-weight: 500; text-decoration: none; color: var(--trans); }
+    .file-link a:hover { text-decoration: underline; }
+    .file-link .stage-name { color: var(--ink-3); font-size: 12.5px; }
+    .file-link .state { margin-left: auto; color: var(--ink-3); font: 12px var(--mono); }
+    pre.log {
+      max-height: 420px;
+      margin: 0;
+      overflow: auto;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #1c1d21;
+      color: #e6e7ea;
+      font: 12px/1.5 var(--mono);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .output-path { margin: 0 0 10px; color: var(--ink-3); font: 12px var(--mono); word-break: break-all; }
+
+    /* ---------- edit ---------- */
+    .editor-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 10px 12px;
+      padding: 12px 14px;
+    }
+    .editor-bar .param { min-width: 200px; }
+    .editor-bar #resultSelect { min-width: 260px; }
+    .editor-bar #editStatus, .editor-bar #editMeta { align-self: center; }
+    .bar-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+    .bar-actions .muted { margin-right: 4px; white-space: nowrap; }
+    .busy {
       display: none;
-      margin-top: 12px;
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      overflow: hidden;
-      background: rgba(24, 33, 29, 0.08);
-    }
-    .preview-panel.show { display: block; }
-    .preview-panel video {
-      display: block;
-      width: 100%;
-      max-height: 44vh;
-      background: #111;
-    }
-    .preview-caption {
-      padding: 9px 11px;
-      color: var(--muted);
-      font-size: 12px;
-      word-break: break-all;
-    }
-    .future-panel {
-      border: 1px dashed rgba(24, 33, 29, 0.22);
-      border-radius: 18px;
-      padding: 12px;
-      background: rgba(20, 126, 114, 0.07);
-    }
-    .future-panel h3 {
-      margin: 0 0 7px;
-      font-size: 16px;
-      letter-spacing: -0.02em;
-    }
-    .option-heading {
-      grid-column: 1 / -1;
-      margin: 6px 0 -2px;
-      color: var(--ink);
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: var(--trans-soft);
+      color: var(--trans);
       font-size: 13px;
-      font-weight: 900;
-      letter-spacing: 0.02em;
+    }
+    .busy.show { display: flex; }
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(31, 111, 224, 0.25);
+      border-top-color: var(--trans);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty-state { padding: 40px 20px; color: var(--ink-3); text-align: center; }
+    .empty-state b { display: block; margin-bottom: 4px; color: var(--ink); font: 700 16px var(--display); }
+
+    .stage-row {
+      --viewer-h: clamp(260px, calc(100vh - 550px), 640px);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 14px;
+      margin-top: 14px;
+    }
+    .viewer { display: flex; flex-direction: column; min-width: 0; }
+    .viewer-frame {
+      position: relative;
+      height: var(--viewer-h);
+      overflow: hidden;
+      border-radius: var(--radius);
+      background: #111214;
+    }
+    .viewer-frame video { display: block; width: 100%; height: 100%; object-fit: contain; background: #111214; }
+    .transport { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+    .timecode { padding: 0 6px; font: 500 13px var(--mono); white-space: nowrap; }
+    .timecode small { color: var(--ink-3); font-size: 12px; }
+    .transport-links { display: flex; gap: 6px; }
+    .inspector { height: calc(var(--viewer-h) + 46px); overflow-y: auto; padding: 14px 16px; scrollbar-width: thin; }
+    .insp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .insp-time { font: 700 22px var(--display); letter-spacing: -0.01em; }
+    .insp-time small { margin-left: 8px; color: var(--ink-3); font: 12px var(--mono); }
+    .insp-apply { margin: 10px 0 4px; }
+    .insp-field { padding: 9px 0; border-top: 1px solid var(--line); }
+    .insp-field:first-of-type { margin-top: 8px; }
+    .insp-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      color: var(--ink-2);
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+    .insp-label .was { color: var(--gold); font-weight: 500; }
+    .insp-label .link-btn { margin-left: auto; font-size: 12px; }
+    .insp-note { margin-top: 6px; color: var(--ink-3); font-size: 12px; }
+    .insp-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 6px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+    .btn.danger { border-color: rgba(229, 36, 59, 0.35); color: var(--cut); }
+    .btn.danger:hover { border-color: var(--cut); background: var(--cut-soft); }
+    .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border: 1px solid var(--line-2);
+      border-radius: 7px;
+      background: var(--surface);
+      color: var(--ink-2);
+      font: 500 12px var(--sans);
+      cursor: pointer;
+    }
+    .chip i { width: 9px; height: 9px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(22, 24, 29, 0.12); }
+    .chip:hover { border-color: var(--ink-3); color: var(--ink); }
+    .chip.on { border-color: var(--ink); background: var(--ink); color: var(--bg); }
+    .chip.base:not(.on) { border-style: dashed; border-color: var(--gold); }
+    .chip:disabled { opacity: 0.4; cursor: not-allowed; }
+    .stage-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font: 500 11.5px var(--mono);
+      white-space: nowrap;
+    }
+    .stage-badge.cut { background: var(--cut-soft); color: var(--cut); }
+    .stage-badge.precut { background: var(--panel); color: var(--ink-2); }
+    .stage-badge.trans { background: var(--trans-soft); color: var(--trans); }
+    .stage-badge.new { background: var(--gold-soft); color: var(--gold); }
+
+    .live-stage { position: absolute; inset: 0; display: grid; place-items: center; }
+    .live-stage canvas { display: block; }
+    .live-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 2;
+      max-width: calc(100% - 24px);
+      padding: 5px 10px;
+      border-radius: 8px;
+      background: rgba(22, 24, 29, 0.78);
+      color: #f4f3ef;
+      font-size: 12.5px;
+      pointer-events: none;
+    }
+    .view-switch { grid-auto-columns: auto; }
+    .timeline-card { margin-top: 14px; padding: 0; overflow: hidden; }
+    .tl-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .tl-toolbar input[type="range"] { width: 140px; }
+    .tl-legend { display: flex; flex-wrap: wrap; gap: 14px; color: var(--ink-3); font-size: 12px; }
+    .tl-legend i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border-radius: 2px; vertical-align: -1px; }
+    .tl { display: grid; grid-template-columns: 96px minmax(0, 1fr); user-select: none; }
+    .tl-heads { border-right: 1px solid var(--line); background: var(--bg); }
+    .tl-head, .tl-lane, .tl-ruler { height: 24px; border-bottom: 1px solid var(--line); }
+    .tl-head {
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      color: var(--ink-3);
+      font: 500 10.5px var(--mono);
+      letter-spacing: 0.04em;
       text-transform: uppercase;
     }
-    details.advanced {
-      grid-column: 1 / -1;
-      border: 1px solid var(--line);
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.32);
-      padding: 12px;
-    }
-    details.advanced > summary {
-      cursor: pointer;
+    .tl-scroll { position: relative; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+    .tl-content { position: relative; min-width: 100%; }
+    .tl-ruler { position: relative; background: var(--bg); cursor: ew-resize; }
+    .tl-tick { position: absolute; bottom: 0; width: 1px; height: 5px; background: var(--line-2); }
+    .tl-tick.major { height: 9px; background: var(--ink-3); }
+    .tl-tick span { position: absolute; bottom: 9px; left: 3px; color: var(--ink-3); font: 10.5px var(--mono); white-space: nowrap; }
+    .tl-lane { position: relative; cursor: pointer; }
+    .tl-block {
+      position: absolute;
+      top: 3px;
+      bottom: 3px;
+      overflow: hidden;
+      padding: 0 6px;
+      border-radius: 4px;
+      box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.85);
       color: var(--ink);
-      font-weight: 900;
-      letter-spacing: -0.01em;
-      list-style: none;
+      font: 500 11px/17px var(--sans);
+      white-space: nowrap;
     }
-    details.advanced > summary::-webkit-details-marker { display: none; }
-    details.advanced > summary::after {
-      content: "Show";
-      float: right;
-      color: var(--accent2);
-      font-size: 13px;
+    .tl-block.tight { padding: 0; color: transparent; }
+    .tl-evt { position: absolute; top: 4px; bottom: 4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--trans); }
+    .tl-evt.cut { width: 3px; margin-left: -1.5px; background: var(--cut); }
+    .tl-ghost { position: absolute; top: 3px; bottom: 3px; width: 0; margin-left: -1px; border-left: 2px dashed var(--gold); }
+    .tl-dot {
+      position: absolute;
+      top: 1px;
+      z-index: 2;
+      width: 7px;
+      height: 7px;
+      margin-left: -3.5px;
+      border-radius: 50%;
+      background: var(--gold);
+      box-shadow: 0 0 0 1.5px var(--surface);
+      pointer-events: none;
     }
-    details.advanced[open] > summary::after { content: "Hide"; }
-    .advanced-body {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-      margin-top: 12px;
+    .tl-cutline { position: absolute; top: 48px; bottom: 0; z-index: 1; width: 1px; background: rgba(229, 36, 59, 0.5); pointer-events: none; }
+    .tl-sel {
+      position: absolute;
+      top: 24px;
+      bottom: 0;
+      z-index: 2;
+      background: rgba(22, 24, 29, 0.08);
+      box-shadow: inset 2px 0 0 var(--ink), inset 0 0 0 1px rgba(22, 24, 29, 0.25);
+      pointer-events: none;
     }
-    .job-item {
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 9px 10px;
-      background: rgba(255, 255, 255, 0.42);
-      cursor: pointer;
+    .tl-playhead { position: absolute; top: 0; bottom: 0; z-index: 3; width: 2px; margin-left: -1px; background: var(--ink); pointer-events: none; }
+    .tl-playhead::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -5px;
+      border-top: 8px solid var(--ink);
+      border-right: 6px solid transparent;
+      border-left: 6px solid transparent;
     }
-    .job-item b { display: block; font-size: 14px; }
-    .job-item small { color: var(--muted); }
-    @media (max-width: 940px) {
-      .layout, .grid { grid-template-columns: 1fr; }
+
+    @media (max-width: 1100px) {
+      .gen-layout, .stage-row { grid-template-columns: 1fr; }
+      .results { position: static; max-height: none; overflow: visible; }
+      .inspector { height: auto; max-height: none; }
+      .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .run-bar { position: static; }
+    }
+    @media (max-width: 560px) {
+      .nav-inner, main { padding-left: 16px; padding-right: 16px; }
+      .nav-link { display: none; }
+      .params { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .result-head-right select { width: 100%; }
+      .bar-actions { margin-left: 0; }
     }
   </style>
 </head>
 <body>
-  <main>
-    <h1>CuCaT Demo</h1>
-    <div class="subtitle">
-      Upload a song, a dance motion, and an MMD model. CuCaT selects cuts and transition frames, predicts a shot plan,
-      optimizes it with CP-SAT, and exports a camera VMD with a preview video.
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="#generate"><i></i>CuCaT <span>demo</span></a>
+      <nav class="tabs" role="tablist">
+        <button type="button" role="tab" data-tab="generate" aria-selected="true">Generate</button>
+        <button type="button" role="tab" data-tab="edit" aria-selected="false">Edit</button>
+      </nav>
+      <a class="nav-link" href="https://dnpcs12.github.io/CuCaT-Page/" target="_blank" rel="noopener">Project page ↗</a>
     </div>
+  </header>
 
-    <div class="layout">
-      <section class="card">
-        <h2>Input Files</h2>
-        <form id="jobForm">
-          <div class="grid">
-            <label class="wide drop-zone" data-file-drop="wav_file" data-extensions=".wav">
-              Music WAV
-              <input name="wav_file" type="file" accept=".wav,audio/wav,audio/x-wav" />
-              <span class="drop-copy">Drop WAV here or click to browse</span>
-              <span class="file-name" data-file-name="wav_file">No file selected</span>
-            </label>
-            <label class="wide drop-zone" data-file-drop="vmd_file" data-extensions=".vmd">
-              Dance VMD
-              <input name="vmd_file" type="file" accept=".vmd" />
-              <span class="drop-copy">Drop VMD here or click to browse</span>
-              <span class="file-name" data-file-name="vmd_file">No file selected</span>
-            </label>
-            <label class="wide drop-zone" data-file-drop="model_file" data-extensions=".pmx,.pmd">
-              <span id="modelLabel">Character model PMX/PMD</span>
-              <input name="model_file" type="file" accept=".pmx,.pmd" />
-              <span class="drop-copy" id="modelDropCopy">Drop a PMX/PMD whose skeleton matches the dance, or click to browse</span>
-              <span class="file-name" data-file-name="model_file">No file selected</span>
-            </label>
-            <label class="wide">
-              Model folder with textures (optional)
-              <input name="model_folder_files" type="file" webkitdirectory directory multiple />
-              <span class="hint">
-                Choose the model's original folder so its textures appear in the preview video.
-              </span>
-            </label>
+  <main>
+    <!-- ================= Generate ================= -->
+    <section id="tab-generate" role="tabpanel">
+      <div class="page-intro">
+        <h1>Generate a camera</h1>
+        <p>Give CuCaT a song, a dance, and the character model. It picks cuts and transition frames, predicts a shot plan, optimizes it with CP-SAT, and writes an MMD camera VMD with a preview video.</p>
+      </div>
 
-            <div class="wide future-panel">
-              <h3>Camera trajectory stage</h3>
-              <div class="hint">
-                After the timing stage, the page predicts the shot plan, optimizes it with CP-SAT,
-                and writes the camera VMD to the same output folder.
+      <div class="gen-layout">
+        <form id="jobForm" class="controls" novalidate>
+          <section class="card">
+            <div class="card-head">
+              <h2>Inputs</h2>
+              <span class="muted">Drop files anywhere on the page</span>
+            </div>
+            <div class="source-pick" id="sourcePick" hidden>
+              <div class="seg" role="radiogroup" aria-label="Inputs">
+                <label><input type="radio" name="input_source" value="reuse" checked /><span>Same as an earlier run</span></label>
+                <label><input type="radio" name="input_source" value="files" /><span>New files</span></label>
               </div>
-              <div class="grid" style="margin-top:10px">
-                <label>
-                  Shot-plan model
-                  <input disabled placeholder="final model / v3_1_visual_scale_005" />
-                </label>
-                <label>
-                  Camera output
-                  <input disabled placeholder="camera_poses_v3_cutctx_optimized_cp_sat_interpstage.vmd" />
-                </label>
+              <div class="file-row has-file model-pick" id="reuseRow">
+                <span class="file-type">RUN</span>
+                <span class="file-main">
+                  <b>
+                    Earlier run
+                    <button type="button" class="tip" aria-label="About reusing an earlier run" data-tip="Runs again on the music, dance, and model of an earlier run, so only the settings change and nothing is uploaded. Its motion conversion, Demucs stems, and beat tracking are reused when the files and their settings match."></button>
+                  </b>
+                  <select name="reuse_run" id="reuseRun" aria-label="Earlier run"></select>
+                </span>
               </div>
+              <p class="field-help" id="reuseInfo"></p>
+            </div>
+            <div class="file-list" id="fileList">
+              <label class="file-row" data-file-drop="wav_file" data-extensions=".wav">
+                <span class="file-type">WAV</span>
+                <span class="file-main">
+                  <b>Music</b>
+                  <span class="file-name" data-file-name="wav_file" data-empty="Drop a .wav or click to browse"></span>
+                </span>
+                <input name="wav_file" type="file" accept=".wav,audio/wav,audio/x-wav" />
+              </label>
+              <label class="file-row" data-file-drop="vmd_file" data-extensions=".vmd">
+                <span class="file-type">VMD</span>
+                <span class="file-main">
+                  <b>Dance motion</b>
+                  <span class="file-name" data-file-name="vmd_file" data-empty="The dance VMD, not a camera VMD"></span>
+                </span>
+                <input name="vmd_file" type="file" accept=".vmd" />
+              </label>
+              <div class="file-row has-file model-pick" id="libraryRow" hidden>
+                <span class="file-type">PMX</span>
+                <span class="file-main">
+                  <b>
+                    Character model
+                    <button type="button" class="tip" aria-label="About saved models" data-tip="Every model you upload is kept with its texture folder in music_processing/results/web_demo/models, so later runs can use it without uploading it again. The most recently used one is picked first. Delete a model's folder there to remove it."></button>
+                  </b>
+                  <select name="library_model" id="libraryModel" aria-label="Character model"></select>
+                </span>
+              </div>
+              <label class="file-row" data-file-drop="model_file" data-extensions=".pmx,.pmd">
+                <span class="file-type">PMX</span>
+                <span class="file-main">
+                  <b id="modelLabel">Character model</b>
+                  <span class="file-name" data-file-name="model_file" data-empty="A PMX/PMD whose skeleton matches the dance"></span>
+                </span>
+                <input name="model_file" type="file" accept=".pmx,.pmd" />
+              </label>
+              <label class="file-row" id="folderRow">
+                <span class="file-type">DIR</span>
+                <span class="file-main">
+                  <b>Texture folder <em>optional</em></b>
+                  <span class="file-name" id="folderName">The model's folder, for a textured preview</span>
+                </span>
+                <input name="model_folder_files" type="file" webkitdirectory directory multiple />
+              </label>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <h2>Cuts and keyframes</h2>
+              <button type="button" class="link-btn" id="resetCutsBtn">Paper defaults</button>
+            </div>
+            <div class="field">
+              <div class="field-label">
+                Selection
+                <button type="button" class="tip" aria-label="About cut selection" data-tip="How the cut budget is spread over the song. Global takes the strongest cut candidates anywhere; Adaptive gives each window of the song a share of the cuts; Uniform spaces cuts evenly." data-default="Global (paper)"></button>
+              </div>
+              <div class="seg" role="radiogroup" aria-label="Cut selection">
+                <label><input type="radio" name="cut_selection_mode" value="global" checked /><span>Global</span></label>
+                <label><input type="radio" name="cut_selection_mode" value="adaptive" /><span>Adaptive</span></label>
+                <label><input type="radio" name="cut_selection_mode" value="uniform" /><span>Uniform</span></label>
+              </div>
+              <p class="field-help" id="cutModeHelp"></p>
+            </div>
+            <div class="field" id="cutWindowField" hidden>
+              <label class="param">
+                <span class="param-label">
+                  Adaptive window (s)
+                  <button type="button" class="tip" aria-label="About the adaptive window" data-tip="Length of the windows that Adaptive selection splits the song into. Each window gets cuts in proportion to the strength of its cut candidates." data-default="10"></button>
+                </span>
+                <input name="cut_window_sec" type="number" min="1" step="1" value="10" />
+              </label>
+            </div>
+            <div class="field">
+              <div class="field-label">
+                Cut ratio
+                <button type="button" class="tip" aria-label="About the cut ratio" data-tip="Share of the predicted keyframe budget spent on cuts. Each cut uses two keyframes (the frame before the cut and the cut frame), so 70% means the paper's cut ratio of 0.35 cut events per keyframe. Higher values give more, shorter shots; lower values give fewer cuts and more camera motion inside each shot." data-default="70% (paper)"></button>
+              </div>
+              <div class="slider-row">
+                <input id="cutRatioRange" type="range" min="0" max="100" step="5" value="70" aria-label="Cut ratio" />
+                <span class="number-unit"><input name="density_cut_percent" type="number" min="0" max="100" step="1" value="70" aria-label="Cut ratio percent" /></span>
+              </div>
+              <div class="ratio-readout" id="cutRatioReadout"></div>
+            </div>
+            <div class="field">
+              <div class="field-label">
+                Keyframe budget
+                <button type="button" class="tip" aria-label="About the keyframe budget" data-tip="Scales how many keyframes the budget model predicts for the song, cuts and transitions together; the cut ratio above then splits the scaled budget. Below 1× gives fewer, longer shots and calmer cameras; above 1× gives more cuts and more camera moves." data-default="1× (paper)"></button>
+              </div>
+              <div class="slider-row">
+                <input id="budgetRange" type="range" min="0.25" max="2" step="0.05" value="1" aria-label="Keyframe budget" />
+                <span class="number-unit times"><input name="density_budget_scale" type="number" min="0.25" max="2" step="0.05" value="1" aria-label="Keyframe budget multiplier" /></span>
+              </div>
+              <div class="ratio-readout" id="budgetReadout"></div>
+            </div>
+          </section>
+
+          <section class="card" id="advancedCard">
+            <div class="card-head">
+              <h2>Advanced</h2>
+              <button type="button" class="link-btn" id="resetAllBtn">Reset all</button>
             </div>
 
-            <details class="advanced">
-              <summary>Advanced options</summary>
-              <div class="advanced-body">
-                <label>
-                  Song id
-                  <input name="song_id" placeholder="optional, e.g. iris_out" />
-                </label>
-                <label>
-                  Frame policy
-                  <select name="frame_policy">
-                    <option value="min" selected>min(audio, motion)</option>
-                    <option value="motion">motion length</option>
-                    <option value="audio">audio length</option>
-                  </select>
-                </label>
-                <label class="wide">
-                  Pipeline goal
+            <details class="group">
+              <summary>Pipeline <span class="changed-count" hidden></span></summary>
+              <div class="params">
+                <label class="param wide">
+                  <span class="param-label">Run<button type="button" class="tip" aria-label="About the run mode" data-tip="Full run: cut and transition timing, shot plan, CP-SAT, camera VMD, and preview video. Timing only: stop after choosing the cut and transition frames." data-default="Full run"></button></span>
                   <select name="pipeline_mode">
-                    <option value="timing_then_camera" selected>Timing + shot plan + camera VMD</option>
-                    <option value="timing_only">Timing only: cut/keyframe JSON</option>
+                    <option value="timing_then_camera" selected>Full run: timing → shot plan → camera VMD</option>
+                    <option value="timing_only">Timing only: cut and transition frames</option>
                   </select>
                 </label>
-                <div class="option-heading">Shot-plan optimization</div>
-                <label class="check wide"><input type="checkbox" name="skip_optimization" /> Skip CP-SAT optimization</label>
-                <label class="check"><input type="checkbox" name="optimization_enable_sequence_stats" /> Enable sequence stats</label>
-                <label class="check"><input type="checkbox" name="optimization_allow_new_top_pitch_candidates" /> Allow new top pitch</label>
-                <label class="wide">
-                  Near face/chest height calibration
-                  <select name="shotplan_height_calibration_mode">
-                    <option value="on" selected>on</option>
-                    <option value="off">off</option>
+                <label class="param">
+                  <span class="param-label">Run name<button type="button" class="tip" aria-label="About the run name" data-tip="Name of the output folder. A short id is appended so runs never overwrite each other." data-default="WAV file name"></button></span>
+                  <input name="song_id" placeholder="e.g. iris_out" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Timeline length<button type="button" class="tip" aria-label="About the timeline length" data-tip="Length of the camera timeline when the WAV and the dance have different lengths." data-default="Shorter of the two"></button></span>
+                  <select name="frame_policy">
+                    <option value="min" selected>Shorter of audio and motion</option>
+                    <option value="motion">Motion length</option>
+                    <option value="audio">Audio length</option>
                   </select>
                 </label>
-                <label>
-                  Face height offset
-                  <input name="shotplan_height_calibration_face_offset" type="number" step="0.005" value="-0.035" />
-                </label>
-                <label>
-                  Chest height offset
-                  <input name="shotplan_height_calibration_chest_offset" type="number" step="0.005" value="-0.025" />
-                </label>
-                <label>
-                  Top-k candidates
-                  <input name="optimization_top_k" type="number" min="1" max="30" step="1" value="10" />
-                </label>
-                <label>
-                  Solver time sec
-                  <input name="optimization_max_time_sec" type="number" min="1" step="1" value="30" />
-                </label>
-                <label>
-                  Local cost scale
-                  <input name="optimization_local_cost_scale" type="number" min="1" step="1" value="100" />
-                </label>
-                <label>
-                  Distance bounce
-                  <input name="optimization_distance_bounce_weight" type="number" min="0" step="10" value="400" />
-                </label>
-                <label>
-                  Composition bounce
-                  <input name="optimization_composition_bounce_weight" type="number" min="0" step="10" value="100" />
-                </label>
-                <label>
-                  Top bounce
-                  <input name="optimization_top_pitch_bounce_weight" type="number" min="0" step="10" value="400" />
-                </label>
-                <label>
-                  Top bounce gap
-                  <input name="optimization_top_pitch_bounce_max_frame_gap" type="number" min="1" step="1" value="30" />
-                </label>
-                <label>
-                  Cut identity
-                  <input name="optimization_cut_identity_weight" type="number" min="0" step="10" value="400" />
-                </label>
-                <label>
-                  Weak-cut contrast
-                  <input name="optimization_cut_contrast_weight" type="number" min="0" step="10" value="100" />
-                </label>
-                <label>
-                  Weak-cut min score
-                  <input name="optimization_cut_contrast_min_score" type="number" min="0" step="1" value="3" />
-                </label>
-                <label>
-                  Cut speed guard
-                  <input name="optimization_cut_context_speed_weight" type="number" min="0" step="10" value="400" />
-                </label>
-                <label>
-                  Cut speed min
-                  <input name="optimization_cut_context_speed_min_speed" type="number" min="0" step="10" value="250" />
-                </label>
-                <label>
-                  Repeated bounce
-                  <input name="optimization_repeated_distance_bounce_weight" type="number" min="0" step="10" value="1200" />
-                </label>
-                <label>
-                  Distance duration
-                  <input name="optimization_distance_level_duration_weight" type="number" min="0" step="10" value="160" />
-                </label>
-                <label>
-                  Duration upper key
-                  <input name="optimization_distance_level_duration_upper_key" value="p99_sec" />
-                </label>
-                <label class="wide">
-                  Duration stats JSON
-                  <input name="optimization_distance_level_duration_stats" placeholder="default: camera_autoshot/analysis/v31_distance_level_duration_stats_midpoint.json" />
-                </label>
-                <label class="wide">
-                  Duration levels
-                  <input name="optimization_distance_level_duration_include_levels" value="tight_close,close,medium_close" />
-                </label>
-                <div class="option-heading">Preview render</div>
-                <label class="check wide"><input type="checkbox" name="skip_render_preview" /> Skip MP4 preview render</label>
-                <label class="wide">
-                  Textured render model path
-                  <input name="render_model_path" placeholder="optional; leave blank to render with the model above" />
-                </label>
-                <label>
-                  Render width
-                  <input name="render_preview_width" type="number" min="320" step="2" value="1280" />
-                </label>
-                <label>
-                  Render height
-                  <input name="render_preview_height" type="number" min="180" step="2" value="720" />
-                </label>
-                <label>
-                  Render FPS
-                  <input name="render_preview_fps" type="number" min="1" step="1" value="30" />
-                </label>
-                <label>
-                  Session size
-                  <input name="render_preview_session_size" type="number" min="1" step="1" value="1" />
-                </label>
-                <div class="option-heading">Input and timing</div>
-                <label class="wide">
-                  Or WAV local path
-                  <input name="wav_path" placeholder="D:\path\music.wav" />
-                </label>
-                <label class="wide">
-                  Or VMD local path
-                  <input name="vmd_path" placeholder="D:\path\motion.vmd" />
-                </label>
-                <label class="wide">
-                  Or PMX/PMD local path
-                  <input name="model_path" placeholder="D:\path\model.pmx" />
-                </label>
-                <label>
-                  Motion JSON upload
-                  <input name="motion_json_file" type="file" accept=".json" />
-                </label>
-                <label>
-                  Device
+                <label class="param">
+                  <span class="param-label">Model device<button type="button" class="tip" aria-label="About the model device" data-tip="Device for the timing and shot-plan networks. Auto uses CUDA when it is available." data-default="auto"></button></span>
                   <select name="device">
                     <option value="auto" selected>auto</option>
                     <option value="cuda">cuda</option>
                     <option value="cpu">cpu</option>
                   </select>
                 </label>
-                <label class="wide">
-                  Or GlobalTransform JSON local path
+              </div>
+            </details>
+
+            <details class="group">
+              <summary>Timing <span class="changed-count" hidden></span></summary>
+              <div class="params">
+                <label class="param">
+                  <span class="param-label">Min cut gap (s)<button type="button" class="tip" aria-label="About the cut gap" data-tip="Two cuts are never closer than this. The paper uses 30 frames (1 s)." data-default="1.0"></button></span>
+                  <input name="cut_min_gap_sec" type="number" min="0" step="0.1" value="1.0" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Min cut probability<button type="button" class="tip" aria-label="About the cut probability floor" data-tip="Peaks of the predicted cut probability below this value are never used as cuts. 0 keeps every peak, as in the paper's experiments." data-default="0"></button></span>
+                  <input name="cut_min_score" type="number" min="0" max="1" step="0.01" value="0" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Cut-free zone (s)<button type="button" class="tip" aria-label="About the cut-free zone" data-tip="No transition keyframe is placed within this many seconds of a cut, so each shot starts and ends cleanly." data-default="0.5"></button></span>
+                  <input name="keyframe_cut_exclusion_sec" type="number" min="0" step="0.1" value="0.5" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Min transition gap (frames)<button type="button" class="tip" aria-label="About the transition gap" data-tip="Minimum number of frames between two transition keyframes inside a shot." data-default="5"></button></span>
+                  <input name="keyframe_min_gap_frames" type="number" min="1" step="1" value="5" />
+                </label>
+              </div>
+            </details>
+
+            <details class="group">
+              <summary>Shot-plan optimization (CP-SAT) <span class="changed-count" hidden></span></summary>
+              <div class="params">
+                <p class="group-note param wide">CP-SAT picks one of the model's top-k shot plans for every event so the whole sequence avoids the artifacts below. The defaults are the settings used for the paper's results.</p>
+                <label class="check param wide"><input type="checkbox" name="skip_optimization" /> Skip CP-SAT and keep the model's first choice for every event
+                  <button type="button" class="tip" aria-label="About skipping CP-SAT" data-tip="Use the top-ranked shot plan of every event as is. Faster, but short back-and-forth patterns are not cleaned up." data-default="off"></button></label>
+                <label class="check param wide"><input type="checkbox" name="optimization_allow_new_top_pitch_candidates" /> Allow new top views
+                  <button type="button" class="tip" aria-label="About new top views" data-tip="Let CP-SAT choose a top-view candidate at events where the model's first choice is not a top view. When off, CP-SAT never adds top views the model did not rank first." data-default="off"></button></label>
+                <label class="param">
+                  <span class="param-label">Candidates per event<button type="button" class="tip" aria-label="About top-k" data-tip="Number of shot plans the model proposes per event (top-k). CP-SAT chooses one of them." data-default="10"></button></span>
+                  <input name="optimization_top_k" type="number" min="1" max="30" step="1" value="10" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Solver time limit (s)<button type="button" class="tip" aria-label="About the solver time limit" data-tip="Time limit per song. If CP-SAT runs out of time it uses the best solution found so far." data-default="30"></button></span>
+                  <input name="optimization_max_time_sec" type="number" min="1" step="1" value="30" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Model-confidence scale<button type="button" class="tip" aria-label="About the local cost scale" data-tip="Scale of the cost for choosing a lower-ranked candidate (the model's log-probability, made integer). Higher keeps the result closer to the model's ranking; lower lets the penalties below change more events." data-default="100"></button></span>
+                  <input name="optimization_local_cost_scale" type="number" min="1" step="1" value="100" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Distance bounce<button type="button" class="tip" aria-label="About the distance bounce" data-tip="Penalty for a short close–far–close reversal of the apparent shot size within 60 frames." data-default="400"></button></span>
+                  <input name="optimization_distance_bounce_weight" type="number" min="0" step="10" value="400" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Composition bounce<button type="button" class="tip" aria-label="About the composition bounce" data-tip="Penalty for the dancer's screen position flipping back and forth (for example center–left–center) within 60 frames." data-default="100"></button></span>
+                  <input name="optimization_composition_bounce_weight" type="number" min="0" step="10" value="100" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Top-view spike<button type="button" class="tip" aria-label="About the top-view spike" data-tip="Penalty for a brief top view that returns to a non-top view right away. Top views themselves are allowed." data-default="400"></button></span>
+                  <input name="optimization_top_pitch_bounce_weight" type="number" min="0" step="10" value="400" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Spike window (frames)<button type="button" class="tip" aria-label="About the top-view spike window" data-tip="A top view counts as a spike when the shots before and after it are at most this many frames away." data-default="30"></button></span>
+                  <input name="optimization_top_pitch_bounce_max_frame_gap" type="number" min="1" step="1" value="30" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Identical cut<button type="button" class="tip" aria-label="About identical cuts" data-tip="Penalty when the shot plans just before and after a cut are the same, which makes the cut invisible." data-default="400"></button></span>
+                  <input name="optimization_cut_identity_weight" type="number" min="0" step="10" value="400" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Weak cut<button type="button" class="tip" aria-label="About weak cuts" data-tip="Penalty scale for cuts whose two sides differ too little. Changes in target, distance, yaw, and pitch count more than composition, roll, and FoV." data-default="100"></button></span>
+                  <input name="optimization_cut_contrast_weight" type="number" min="0" step="10" value="100" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Weak-cut threshold<button type="button" class="tip" aria-label="About the weak-cut threshold" data-tip="Contrast score a cut needs to avoid the weak-cut penalty." data-default="3"></button></span>
+                  <input name="optimization_cut_contrast_min_score" type="number" min="0" step="1" value="3" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Zoom near cuts<button type="button" class="tip" aria-label="About zoom near cuts" data-tip="Penalty for fast, zoom-like changes of shot size on the transitions right next to a cut." data-default="400"></button></span>
+                  <input name="optimization_cut_context_speed_weight" type="number" min="0" step="10" value="400" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Zoom speed threshold<button type="button" class="tip" aria-label="About the zoom speed threshold" data-tip="Speed of shot-size change (scale ranks per second) above which the zoom-near-cuts penalty applies." data-default="250"></button></span>
+                  <input name="optimization_cut_context_speed_min_speed" type="number" min="0" step="10" value="250" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Repeated bounce<button type="button" class="tip" aria-label="About the repeated bounce" data-tip="Penalty for close and far shots alternating over five events in a row (gaps of at most 90 frames)." data-default="1200"></button></span>
+                  <input name="optimization_repeated_distance_bounce_weight" type="number" min="0" step="10" value="1200" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Long close-up<button type="button" class="tip" aria-label="About long close-ups" data-tip="Penalty for holding a tight shot longer than shots of that size last in the ground-truth cameras." data-default="160"></button></span>
+                  <input name="optimization_distance_level_duration_weight" type="number" min="0" step="10" value="160" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Close-up length limit<button type="button" class="tip" aria-label="About the close-up length limit" data-tip="Statistic of the ground-truth hold durations used as the limit. p99_sec is the 99th percentile; p95_sec and max_sec also work." data-default="p99_sec"></button></span>
+                  <input name="optimization_distance_level_duration_upper_key" value="p99_sec" />
+                </label>
+                <label class="param wide">
+                  <span class="param-label">Close-up levels<button type="button" class="tip" aria-label="About the close-up levels" data-tip="Shot-size levels the long close-up penalty applies to, comma-separated." data-default="tight_close,close,medium_close"></button></span>
+                  <input name="optimization_distance_level_duration_include_levels" value="tight_close,close,medium_close" />
+                </label>
+                <label class="param wide">
+                  <span class="param-label">Duration stats JSON<button type="button" class="tip" aria-label="About the duration stats" data-tip="Ground-truth hold durations per shot-size level. Leave blank to use the released file." data-default="camera_autoshot/analysis/v31_distance_level_duration_stats_midpoint.json"></button></span>
+                  <input name="optimization_distance_level_duration_stats" placeholder="released stats file" />
+                </label>
+              </div>
+            </details>
+
+            <details class="group">
+              <summary>Camera export <span class="changed-count" hidden></span></summary>
+              <div class="params">
+                <label class="check param wide"><input type="checkbox" name="shotplan_height_calibration_mode" value="on" checked /> Lower the look-at point for close face and chest shots
+                  <button type="button" class="tip" aria-label="About the height calibration" data-tip="Moves the look-at point slightly down for very close and close face or chest shots when writing the VMD. A demo adjustment: it changes no predicted labels and is not used in the paper's evaluation." data-default="on"></button></label>
+                <label class="param">
+                  <span class="param-label">Face offset<button type="button" class="tip" aria-label="About the face offset" data-tip="Vertical shift of the look-at point for close face shots, as a fraction of the body height. Negative moves it down." data-default="-0.035"></button></span>
+                  <input name="shotplan_height_calibration_face_offset" type="number" step="0.005" value="-0.035" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Chest offset<button type="button" class="tip" aria-label="About the chest offset" data-tip="Vertical shift of the look-at point for close chest shots, as a fraction of the body height. Negative moves it down." data-default="-0.025"></button></span>
+                  <input name="shotplan_height_calibration_chest_offset" type="number" step="0.005" value="-0.025" />
+                </label>
+              </div>
+            </details>
+
+            <details class="group">
+              <summary>Preview video <span class="changed-count" hidden></span></summary>
+              <div class="params">
+                <label class="param wide">
+                  <span class="param-label">Preview model path<button type="button" class="tip" aria-label="About the preview model" data-tip="A model used only for the preview video, for example a textured copy. Leave blank to render with the input model." data-default="input model"></button></span>
+                  <input name="render_model_path" placeholder="D:\path\model.pmx" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Width</span>
+                  <input name="render_preview_width" type="number" min="320" step="2" value="1280" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Height</span>
+                  <input name="render_preview_height" type="number" min="180" step="2" value="720" />
+                </label>
+                <label class="param">
+                  <span class="param-label">FPS</span>
+                  <input name="render_preview_fps" type="number" min="1" step="1" value="30" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Renders per viewer<button type="button" class="tip" aria-label="About renders per viewer" data-tip="How many videos one viewer process renders before restarting. Only matters when several previews render together." data-default="1"></button></span>
+                  <input name="render_preview_session_size" type="number" min="1" step="1" value="1" />
+                </label>
+              </div>
+            </details>
+
+            <details class="group">
+              <summary>Local paths and runtime <span class="changed-count" hidden></span></summary>
+              <div class="params">
+                <p class="group-note param wide">Instead of uploading, you can type paths on this machine. The server reads them directly.</p>
+                <label class="param wide">
+                  <span class="param-label">WAV path</span>
+                  <input name="wav_path" placeholder="D:\path\music.wav" />
+                </label>
+                <label class="param wide">
+                  <span class="param-label">Dance VMD path</span>
+                  <input name="vmd_path" placeholder="D:\path\motion.vmd" />
+                </label>
+                <label class="param wide">
+                  <span class="param-label">Model PMX/PMD path</span>
+                  <input name="model_path" placeholder="D:\path\model.pmx" />
+                </label>
+                <label class="param wide">
+                  <span class="param-label">Motion JSON path<button type="button" class="tip" aria-label="About the motion JSON" data-tip="A GlobalTransform JSON already extracted from the dance. With it, the VMD is not evaluated on the model again." data-default="none"></button></span>
                   <input name="motion_json_path" placeholder="D:\path\motion_GlobalTransform.json" />
                 </label>
-                <label class="wide">
-                  mmd_target_dump.exe path
-                  <input name="target_dump_tool" placeholder="optional; auto-detects saba_mmd/build/Release/mmd_target_dump.exe" />
+                <label class="param wide">
+                  <span class="param-label">Motion JSON upload</span>
+                  <input name="motion_json_file" type="file" accept=".json" />
                 </label>
-                <label>
-                  Demucs device
+                <label class="param wide">
+                  <span class="param-label">mmd_target_dump.exe<button type="button" class="tip" aria-label="About mmd_target_dump" data-tip="Tool that evaluates the dance VMD on the model to get body positions. Leave blank to use saba_mmd/build/Release." data-default="auto-detect"></button></span>
+                  <input name="target_dump_tool" placeholder="auto-detect" />
+                </label>
+                <label class="param">
+                  <span class="param-label">Demucs device<button type="button" class="tip" aria-label="About the Demucs device" data-tip="Device for stem separation. On CPU it takes about a minute per song." data-default="auto"></button></span>
                   <select name="demucs_device">
                     <option value="auto" selected>auto</option>
                     <option value="cuda">cuda</option>
                     <option value="cpu">cpu</option>
                   </select>
                 </label>
-                <label>
-                  Demucs model
-                  <input name="demucs_model" value="htdemucs" />
-                </label>
-                <label class="wide">
-                  Demucs Python
-                  <input name="demucs_python" placeholder="optional; leave blank to use the pipeline Python" />
-                </label>
-                <label>
-                  Demucs shifts
+                <label class="param">
+                  <span class="param-label">Demucs shifts<button type="button" class="tip" aria-label="About Demucs shifts" data-tip="Number of shifted passes Demucs averages. Higher is slightly cleaner and proportionally slower." data-default="1"></button></span>
                   <input name="demucs_shifts" type="number" min="0" step="1" value="1" />
                 </label>
-                <label>
-                  Cut selection
-                  <select name="cut_selection_mode">
-                    <option value="global" selected>global</option>
-                    <option value="adaptive">adaptive</option>
-                    <option value="uniform">uniform</option>
-                  </select>
+                <label class="param">
+                  <span class="param-label">Demucs model</span>
+                  <input name="demucs_model" value="htdemucs" />
                 </label>
-                <label>
-                  Density cut percent
-                  <input name="density_cut_percent" type="number" step="1" value="70" />
+                <label class="param">
+                  <span class="param-label">Demucs Python<button type="button" class="tip" aria-label="About the Demucs Python" data-tip="Run Demucs with a different Python interpreter. Leave blank to use the pipeline's Python." data-default="pipeline Python"></button></span>
+                  <input name="demucs_python" placeholder="pipeline Python" />
                 </label>
-                <label>
-                  Cut min gap sec
-                  <input name="cut_min_gap_sec" type="number" step="0.1" value="1.0" />
-                </label>
-                <label>
-                  Cut min score
-                  <input name="cut_min_score" type="number" step="0.01" value="0" />
-                </label>
-                <label>
-                  Key cut exclusion sec
-                  <input name="keyframe_cut_exclusion_sec" type="number" step="0.1" value="0.5" />
-                </label>
-                <label>
-                  Key min gap frames
-                  <input name="keyframe_min_gap_frames" type="number" step="1" value="5" />
-                </label>
+                <label class="check param wide"><input type="checkbox" name="skip_demucs" /> Skip Demucs
+                  <button type="button" class="tip" aria-label="About skipping Demucs" data-tip="Skip stem separation. Turn on the stem fallback too, otherwise the run stops at the audio features." data-default="off"></button></label>
+                <label class="check param wide"><input type="checkbox" name="allow_stem_fallback" /> Use the full mix when a stem is missing
+                  <button type="button" class="tip" aria-label="About the stem fallback" data-tip="If a Demucs stem is missing, compute its audio features from the full mix instead of stopping. Results then differ from the trained setting." data-default="off"></button></label>
+                <label class="check param wide"><input type="checkbox" name="force" /> Recompute every stage
+                  <button type="button" class="tip" aria-label="About recomputing" data-tip="Ignore results already in the output folder and run every stage again." data-default="off"></button></label>
               </div>
             </details>
+          </section>
 
-            <div class="wide row">
-              <label class="check"><input type="checkbox" name="skip_demucs" /> Skip Demucs</label>
-              <label class="check"><input type="checkbox" name="allow_stem_fallback" /> Allow stem fallback</label>
-              <label class="check"><input type="checkbox" name="force" /> Force regenerate</label>
-            </div>
-
-            <div class="wide row">
-              <button id="runBtn" type="submit">Run pipeline</button>
-              <button id="refreshBtn" class="secondary" type="button">Refresh jobs</button>
-            </div>
+          <div class="run-bar">
+            <button id="runBtn" class="btn primary" type="submit">Run pipeline</button>
+            <label class="check"><input type="checkbox" name="skip_render_preview" id="skipMp4" /> Live 3D only, no MP4
+              <button type="button" class="tip" aria-label="About skipping the MP4" data-tip="Skips the SABA render and plays the result in the browser's Live 3D viewer, so a run finishes sooner when you are trying settings. Render the MP4 later from the result card when you want to keep one." data-default="off"></button></label>
+            <span id="formNote" class="form-note"></span>
           </div>
         </form>
-        <div class="hint">
-          Tip: instead of uploading, you can type local paths under Advanced options; the server reads them directly from this machine.
-        </div>
-      </section>
 
-      <aside class="card">
-        <h2>Current Job</h2>
-        <div id="status" class="status">idle</div>
-        <div id="progressPanel" class="progress-panel"></div>
-        <div id="summary" class="summary"></div>
-        <h2 style="margin-top:18px">Inference Timing</h2>
-        <div id="timings" class="timing-list"></div>
-        <h2 style="margin-top:18px">Pipeline Stages</h2>
-        <div id="stages" class="stage-list"></div>
-        <h2 style="margin-top:18px">Artifacts</h2>
-        <div id="artifacts" class="artifact-list"></div>
-        <div id="previewPanel" class="preview-panel">
-          <video id="previewVideo" controls playsinline></video>
-          <div id="previewCaption" class="preview-caption"></div>
-        </div>
-        <div id="links" class="links"></div>
-        <pre id="log">No job selected.</pre>
+        <section class="results">
+          <div class="card">
+            <div class="result-head">
+              <div>
+                <div class="eyebrow">Run</div>
+                <h2 id="jobTitle">No run yet</h2>
+              </div>
+              <div class="result-head-right">
+                <span id="status" class="pill">idle</span>
+                <select id="jobSelect" aria-label="Recent runs"><option value="">Recent runs</option></select>
+              </div>
+            </div>
+            <div id="progress" class="progress" hidden></div>
+            <div class="video-frame">
+              <video id="previewVideo" controls playsinline hidden></video>
+              <div class="live-stage" id="resultLive" hidden></div>
+              <div class="video-empty" id="videoEmpty">The preview plays here when a run finishes.</div>
+            </div>
+            <audio id="resultAudio" class="result-audio" controls preload="auto" hidden></audio>
+            <div class="stats" id="stats"></div>
+            <div class="actions" id="actions"></div>
+            <div id="errorBox" class="error-box" hidden></div>
+          </div>
 
-        <h2 style="margin-top:18px">Recent Jobs</h2>
-        <div id="jobs" class="jobs"></div>
-      </aside>
-    </div>
+          <details class="card fold" id="stagesFold">
+            <summary>Stages and timing <span class="muted" id="stagesSummary"></span></summary>
+            <div class="fold-body">
+              <div id="stages" class="stage-list"></div>
+              <div id="timings"></div>
+            </div>
+          </details>
+          <details class="card fold">
+            <summary>Output files</summary>
+            <div class="fold-body">
+              <p class="output-path" id="outputPath"></p>
+              <div id="artifacts" class="file-links"></div>
+            </div>
+          </details>
+          <details class="card fold" id="logFold">
+            <summary>Log</summary>
+            <div class="fold-body"><pre id="log" class="log">No run selected.</pre></div>
+          </details>
+        </section>
+      </div>
+    </section>
+
+    <!-- ================= Edit ================= -->
+    <section id="tab-edit" role="tabpanel" hidden>
+      <div class="card editor-bar">
+        <label class="param">
+          <span class="param-label">Run</span>
+          <select id="resultSelect"></select>
+        </label>
+        <label class="param">
+          <span class="param-label">Version</span>
+          <select id="versionSelect"></select>
+        </label>
+        <button id="refreshResultsBtn" class="btn ghost" type="button">Refresh</button>
+        <span class="muted" id="editMeta"></span>
+        <span class="muted" id="editStatus"></span>
+        <div class="bar-actions">
+          <span class="muted" id="changedCount">No edits</span>
+          <button id="undoBtn" class="btn ghost" type="button" title="Undo (Ctrl+Z)" disabled>Undo</button>
+          <button id="discardBtn" class="btn ghost" type="button">Discard</button>
+          <button id="saveVmdBtn" class="btn" type="button">Save VMD only</button>
+          <button id="saveRenderBtn" class="btn primary" type="button">Save &amp; render</button>
+        </div>
+      </div>
+      <div class="busy" id="editBusy"><span class="spinner"></span><span id="editBusyText"></span></div>
+
+      <div id="editEmpty" class="card empty-state" hidden>
+        <b>No finished runs yet</b>
+        Run the pipeline in the Generate tab, then come back here to edit its shot plan.
+      </div>
+
+      <div id="editLayout" hidden>
+        <div class="stage-row">
+          <div class="viewer">
+            <div class="viewer-frame">
+              <div class="live-stage" id="liveStage"></div>
+              <video id="editVideo" controls playsinline hidden></video>
+              <div class="video-empty" id="editVideoEmpty" hidden>This version has no rendered video. Use Save &amp; render to make one, or switch to Live 3D.</div>
+              <div class="live-badge" id="liveBadge" hidden></div>
+              <audio id="editAudio" preload="auto"></audio>
+            </div>
+            <div class="transport">
+              <button id="playBtn" class="btn primary small" type="button" title="Play or pause (Space)">Play</button>
+              <button id="prevKeyBtn" class="btn ghost small" type="button" title="Previous keyframe (←)" aria-label="Previous keyframe">←</button>
+              <button id="nextKeyBtn" class="btn ghost small" type="button" title="Next keyframe (→)" aria-label="Next keyframe">→</button>
+              <button id="addTransBtn" class="btn ghost small" type="button" title="Add a transition keyframe at the playhead (T)">+ Transition</button>
+              <button id="addCutBtn" class="btn ghost small" type="button" title="Add a cut at the playhead (C)">+ Cut</button>
+              <span class="timecode" id="timecode"></span>
+              <div class="seg small view-switch" role="radiogroup" aria-label="Preview">
+                <label title="The model and dance in the browser; edits show at once"><input type="radio" name="viewMode" value="live" checked /><span>Live 3D</span></label>
+                <label title="The MP4 rendered for this version"><input type="radio" name="viewMode" value="video" /><span>Rendered</span></label>
+              </div>
+              <span class="spacer"></span>
+              <span class="transport-links" id="editLinks"></span>
+            </div>
+          </div>
+          <aside class="card inspector" id="inspector"></aside>
+        </div>
+
+        <div class="card timeline-card">
+          <div class="tl-toolbar">
+            <span class="tl-legend">
+              <span><i style="background:var(--cut)"></i>cut</span>
+              <span><i style="background:var(--trans)"></i>transition</span>
+              <span><i style="background:var(--gold);border-radius:50%"></i>edited</span>
+            </span>
+            <span class="muted">Click a block to edit it · ← → step keys · T / C add a transition / cut at the playhead · Del deletes · Ctrl+Z undoes · Space plays</span>
+            <span class="spacer"></span>
+            <label class="check"><input type="checkbox" id="followPlayback" checked /> Follow playhead</label>
+            <button id="zoomOutBtn" class="btn ghost small" type="button" aria-label="Zoom out">−</button>
+            <input id="zoomRange" type="range" min="0" max="100" step="1" value="40" aria-label="Timeline zoom" />
+            <button id="zoomInBtn" class="btn ghost small" type="button" aria-label="Zoom in">+</button>
+            <button id="zoomFitBtn" class="btn ghost small" type="button">Fit</button>
+          </div>
+          <div class="tl">
+            <div class="tl-heads" id="tlHeads"></div>
+            <div class="tl-scroll" id="tlScroll">
+              <div class="tl-content" id="tlContent"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
 
   <script>
     if (location.protocol === "file:") {
-      const serverUrl = `http://127.0.0.1:8785/music_processing/unseen_mmd_pipeline_viewer.html${location.search || ""}${location.hash || ""}`;
-      document.body.innerHTML = `
-        <main>
-          <section class="card">
-            <h1>Opening Server Page</h1>
-            <p class="subtitle">This page needs the local pipeline server for uploads and API calls. Redirecting to <a href="${serverUrl}">${serverUrl}</a>...</p>
-          </section>
-        </main>
-      `;
-      location.replace(serverUrl);
+      location.replace(`http://127.0.0.1:8785/${location.search}${location.hash}`);
     }
 
-    const form = document.getElementById("jobForm");
-    const runBtn = document.getElementById("runBtn");
-    const refreshBtn = document.getElementById("refreshBtn");
-    const statusEl = document.getElementById("status");
-    const progressPanel = document.getElementById("progressPanel");
-    const summaryEl = document.getElementById("summary");
-    const timingsEl = document.getElementById("timings");
-    const stagesEl = document.getElementById("stages");
-    const artifactsEl = document.getElementById("artifacts");
-    const previewPanel = document.getElementById("previewPanel");
-    const previewVideo = document.getElementById("previewVideo");
-    const previewCaption = document.getElementById("previewCaption");
-    const linksEl = document.getElementById("links");
-    const logEl = document.getElementById("log");
-    const jobsEl = document.getElementById("jobs");
-    const dropZones = Array.from(document.querySelectorAll("[data-file-drop]"));
+    const $ = (id) => document.getElementById(id);
 
-    let currentJobId = null;
-    let pollTimer = null;
-
-    async function loadConfig() {
-      const response = await fetch("/api/unseen/config");
-      if (!response.ok) return;
-      const config = await response.json();
-      if (config.default_model) {
-        document.getElementById("modelLabel").textContent = "Character model PMX/PMD (optional)";
-        document.getElementById("modelDropCopy").textContent =
-          `Optional: without a model, the server uses ${config.default_model}`;
-      }
-    }
-
-    function setStatus(text, status) {
-      statusEl.textContent = text;
-      statusEl.className = `status ${status || ""}`;
-    }
-
-    function stat(label, value) {
-      return `<div class="stat"><b>${value ?? "-"}</b><small>${label}</small></div>`;
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[ch]));
     }
 
     function formatSeconds(value) {
-      const seconds = Number(value || 0);
+      const seconds = Number(value);
       if (!Number.isFinite(seconds)) return "-";
-      if (seconds < 1) return `${Math.round(seconds * 1000)}ms`;
-      if (seconds < 60) return `${seconds.toFixed(2)}s`;
+      if (seconds < 1) return `${Math.round(seconds * 1000)} ms`;
+      if (seconds < 60) return `${seconds.toFixed(1)} s`;
       const mins = Math.floor(seconds / 60);
-      const rest = seconds - mins * 60;
-      return `${mins}m ${rest.toFixed(1)}s`;
+      return `${mins}m ${Math.round(seconds - mins * 60)}s`;
     }
 
-    function formatEta(value) {
-      if (value === null || value === undefined || !Number.isFinite(Number(value))) return "estimating...";
-      return formatSeconds(value);
+    function clockText(sec) {
+      const safe = Number.isFinite(sec) ? Math.max(0, sec) : 0;
+      const min = Math.floor(safe / 60);
+      return `${min}:${(safe - min * 60).toFixed(2).padStart(5, "0")}`;
     }
 
-    function escapeHtml(value) {
-      return String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
+    function stat(label, value, cls = "") {
+      return `<div class="stat ${cls}"><b>${escapeHtml(value ?? "-")}</b><small>${escapeHtml(label)}</small></div>`;
     }
+
+    async function getJson(url) {
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}: ${url}`);
+      return response.json();
+    }
+
+    /* ---------------- tabs ---------------- */
+    const tabButtons = Array.from(document.querySelectorAll("[data-tab]"));
+
+    function showTab(name) {
+      const tab = name === "edit" ? "edit" : "generate";
+      tabButtons.forEach((button) => button.setAttribute("aria-selected", String(button.dataset.tab === tab)));
+      $("tab-generate").hidden = tab !== "generate";
+      $("tab-edit").hidden = tab !== "edit";
+      if (location.hash !== `#${tab}`) history.replaceState(null, "", `${location.search}#${tab}`);
+      if (tab === "edit") editor.ensureLoaded();
+    }
+
+    tabButtons.forEach((button) => button.addEventListener("click", () => showTab(button.dataset.tab)));
+    window.addEventListener("hashchange", () => showTab(location.hash.slice(1)));
+
+    /* ---------------- tooltips ---------------- */
+    const tooltip = $("tooltip");
+    let tipOwner = null;
+
+    function showTip(owner) {
+      tipOwner = owner;
+      const def = owner.dataset.default ? `<span class="tip-default">Default: ${escapeHtml(owner.dataset.default)}</span>` : "";
+      tooltip.innerHTML = `${escapeHtml(owner.dataset.tip)}${def}`;
+      tooltip.hidden = false;
+      const box = owner.getBoundingClientRect();
+      const tip = tooltip.getBoundingClientRect();
+      let left = box.left + box.width / 2 - tip.width / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - tip.width - 8));
+      let top = box.bottom + 8;
+      if (top + tip.height > window.innerHeight - 8) top = box.top - tip.height - 8;
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${top}px`;
+    }
+
+    function hideTip() {
+      tipOwner = null;
+      tooltip.hidden = true;
+    }
+
+    document.addEventListener("mouseover", (event) => {
+      const owner = event.target.closest?.(".tip");
+      if (owner && owner !== tipOwner) showTip(owner);
+      else if (!owner && tipOwner) hideTip();
+    });
+    document.addEventListener("focusin", (event) => {
+      if (event.target.classList?.contains("tip")) showTip(event.target);
+    });
+    document.addEventListener("focusout", (event) => {
+      if (event.target === tipOwner) hideTip();
+    });
+    document.addEventListener("click", (event) => {
+      const owner = event.target.closest?.(".tip");
+      if (owner) {
+        event.preventDefault();
+        if (owner === tipOwner) hideTip();
+        else showTip(owner);
+      }
+    });
+    window.addEventListener("scroll", hideTip, true);
+
+    /* ---------------- generate: form ---------------- */
+    const form = $("jobForm");
+    const fileRows = Array.from(document.querySelectorAll("[data-file-drop]"));
+    const CUT_MODE_HELP = {
+      global: "Takes the strongest cut candidates anywhere in the song, so cuts gather where the music and dance give the clearest cues. Used in the paper.",
+      adaptive: "Splits the song into windows and gives each one a share of the cuts in proportion to its cut evidence, so cuts spread across sections.",
+      uniform: "Places cuts near evenly spaced points, taking the best candidate around each one. Gives a steady cutting rhythm.",
+    };
 
     function fileExtension(file) {
       const name = String(file?.name || "").toLowerCase();
@@ -868,15 +1487,8 @@
       return dot >= 0 ? name.slice(dot) : "";
     }
 
-    function allowedExtensions(zone) {
-      return String(zone.dataset.extensions || "")
-        .split(",")
-        .map((item) => item.trim().toLowerCase())
-        .filter(Boolean);
-    }
-
-    function acceptsFile(zone, file) {
-      const allowed = allowedExtensions(zone);
+    function acceptsFile(row, file) {
+      const allowed = String(row.dataset.extensions || "").split(",").map((item) => item.trim()).filter(Boolean);
       return allowed.length === 0 || allowed.includes(fileExtension(file));
     }
 
@@ -887,263 +1499,510 @@
       input.dispatchEvent(new Event("change", { bubbles: true }));
     }
 
-    function updateDropZone(zone) {
-      const input = form.elements[zone.dataset.fileDrop];
-      const fileNameEl = zone.querySelector("[data-file-name]");
+    function updateFileRow(row) {
+      const input = form.elements[row.dataset.fileDrop];
+      const nameEl = row.querySelector("[data-file-name]");
       const file = input?.files?.[0];
-      zone.classList.toggle("has-file", Boolean(file));
-      if (fileNameEl) fileNameEl.textContent = file ? file.name : "No file selected";
+      row.classList.toggle("has-file", Boolean(file));
+      nameEl.textContent = file ? file.name : nameEl.dataset.empty;
     }
 
-    function assignDroppedFiles(files, targetZone = null) {
-      const fileList = Array.from(files || []);
-      if (!fileList.length) return;
-
+    function assignDroppedFiles(files, targetRow = null) {
+      const list = Array.from(files || []);
+      if (!list.length) return;
       const rejected = [];
-      if (targetZone) {
-        const input = form.elements[targetZone.dataset.fileDrop];
-        const file = fileList.find((candidate) => acceptsFile(targetZone, candidate));
-        if (file && input) setInputFile(input, file);
-        else rejected.push(fileList[0]?.name || "file");
+      if (targetRow) {
+        const file = list.find((candidate) => acceptsFile(targetRow, candidate));
+        if (file) setInputFile(form.elements[targetRow.dataset.fileDrop], file);
+        else rejected.push(list[0].name);
       } else {
-        for (const file of fileList) {
-          const zone = dropZones.find((candidate) => acceptsFile(candidate, file));
-          const input = zone ? form.elements[zone.dataset.fileDrop] : null;
-          if (zone && input) setInputFile(input, file);
+        for (const file of list) {
+          const row = fileRows.find((candidate) => acceptsFile(candidate, file));
+          if (row) setInputFile(form.elements[row.dataset.fileDrop], file);
           else rejected.push(file.name);
         }
       }
-
-      dropZones.forEach(updateDropZone);
-      if (rejected.length) {
-        setStatus(`unsupported file: ${rejected.join(", ")}`, "failed");
-      } else {
-        setStatus("files ready", "");
-      }
+      setFormNote(rejected.length ? `Not a WAV, VMD, or PMX/PMD: ${rejected.join(", ")}` : "", rejected.length > 0);
     }
 
-    dropZones.forEach((zone) => {
-      const input = form.elements[zone.dataset.fileDrop];
-      input?.addEventListener("change", () => updateDropZone(zone));
-      zone.addEventListener("dragenter", (event) => {
+    fileRows.forEach((row) => {
+      form.elements[row.dataset.fileDrop].addEventListener("change", () => updateFileRow(row));
+      row.addEventListener("dragover", (event) => {
         event.preventDefault();
-        zone.classList.add("dragging");
+        row.classList.add("dragging");
       });
-      zone.addEventListener("dragover", (event) => {
+      row.addEventListener("dragleave", (event) => {
+        if (!row.contains(event.relatedTarget)) row.classList.remove("dragging");
+      });
+      row.addEventListener("drop", (event) => {
         event.preventDefault();
-        event.dataTransfer.dropEffect = "copy";
-        zone.classList.add("dragging");
+        event.stopPropagation();
+        row.classList.remove("dragging");
+        assignDroppedFiles(event.dataTransfer.files, row);
       });
-      zone.addEventListener("dragleave", (event) => {
-        if (!zone.contains(event.relatedTarget)) zone.classList.remove("dragging");
-      });
-      zone.addEventListener("drop", (event) => {
-        event.preventDefault();
-        zone.classList.remove("dragging");
-        assignDroppedFiles(event.dataTransfer.files, zone);
-      });
-      updateDropZone(zone);
+      updateFileRow(row);
     });
-
     document.addEventListener("dragover", (event) => event.preventDefault());
     document.addEventListener("drop", (event) => {
       event.preventDefault();
-      const explicitZone = event.target.closest?.("[data-file-drop]");
-      if (!explicitZone) assignDroppedFiles(event.dataTransfer.files);
+      if ($("tab-generate").hidden) return;
+      assignDroppedFiles(event.dataTransfer.files);
     });
 
-    function renderStages(job) {
-      const stages = job.stages || [];
-      if (!stages.length) {
-        stagesEl.innerHTML = `<div class="hint">No stage metadata yet.</div>`;
-        return;
+    form.elements.model_folder_files.addEventListener("change", (event) => {
+      const files = Array.from(event.target.files || []);
+      const folder = files[0]?.webkitRelativePath?.split("/")[0] || "";
+      $("folderRow").classList.toggle("has-file", files.length > 0);
+      $("folderName").textContent = files.length ? `${folder} · ${files.length} files` : "The model's folder, for a textured preview";
+    });
+
+    // Saved models: the server keeps every uploaded model with its textures, so a later run can pick it instead.
+    const libraryRow = $("libraryRow");
+    const librarySelect = form.elements.library_model;
+    const modelUploadRows = [document.querySelector('[data-file-drop="model_file"]'), $("folderRow")];
+
+    function usingSavedModel() {
+      return !libraryRow.hidden && !["", "upload", "default"].includes(librarySelect.value);
+    }
+
+    function hasModelUpload() {
+      return form.elements.model_file.files.length > 0 || form.elements.model_folder_files.files.length > 0;
+    }
+
+    function updateModelRows() {
+      modelUploadRows.forEach((row) => { row.hidden = usingSavedModel(); });
+    }
+
+    function clearModelUpload() {
+      for (const input of [form.elements.model_file, form.elements.model_folder_files]) {
+        input.value = "";
+        input.dispatchEvent(new Event("change"));
       }
-      stagesEl.innerHTML = stages.map((stage) => `
-        <div class="stage-item">
-          <i class="dot ${escapeHtml(stage.status)}"></i>
-          <div>
-            <b>${escapeHtml(stage.name)} <span style="color:var(--muted)">(${escapeHtml(stage.status)})</span></b>
-            <small>${escapeHtml(stage.description)}</small>
-          </div>
-        </div>
-      `).join("");
+    }
+
+    async function loadModels() {
+      const models = await getJson("/api/unseen/models");
+      const previous = librarySelect.value;
+      librarySelect.innerHTML = "";
+      for (const model of models) {
+        const file = model.file.split("/").pop();
+        const extra = model.files > 1 ? `${model.files} files` : "no textures";
+        librarySelect.add(new Option(`${model.name} · ${file} · ${extra}`, model.id));
+      }
+      if (appConfig.default_model) librarySelect.add(new Option(`Server default · ${appConfig.default_model}`, "default"));
+      librarySelect.add(new Option("Upload a different model...", "upload"));
+      libraryRow.hidden = models.length === 0;
+      if (hasModelUpload()) librarySelect.value = "upload";
+      else if (previous && [...librarySelect.options].some((option) => option.value === previous)) librarySelect.value = previous;
+      else librarySelect.selectedIndex = 0;
+      updateModelRows();
+    }
+
+    // Earlier runs: run again on the same files with other settings, reusing their preprocessing.
+    const sourcePick = $("sourcePick");
+    const reuseSelect = form.elements.reuse_run;
+    const uploadInputs = ["wav_file", "vmd_file", "model_file", "model_folder_files"].map((name) => form.elements[name]);
+    let reusableRuns = [];
+
+    function reusingRun() {
+      return !sourcePick.hidden && form.elements.input_source.value === "reuse" && Boolean(reuseSelect.value);
+    }
+
+    function updateInputSource() {
+      const reuse = reusingRun();
+      $("fileList").hidden = reuse;
+      $("reuseRow").hidden = !reuse;
+      const run = reusableRuns.find((item) => item.song_id === reuseSelect.value);
+      $("reuseInfo").hidden = !reuse || !run;
+      $("reuseInfo").textContent = run ? [run.wav, run.dance, run.model].filter(Boolean).join(" · ") : "";
+    }
+
+    function setInputSource(source) {
+      form.querySelector(`input[name="input_source"][value="${source}"]`).checked = true;
+      if (source === "reuse") {
+        for (const input of uploadInputs) {
+          if (!input.files.length) continue;
+          input.value = "";
+          input.dispatchEvent(new Event("change"));
+        }
+      }
+      updateInputSource();
+    }
+
+    async function loadReusableRuns(selectId = "") {
+      reusableRuns = await getJson("/api/unseen/inputs");
+      const previous = selectId || reuseSelect.value;
+      reuseSelect.innerHTML = "";
+      for (const run of reusableRuns) {
+        const when = new Date(run.created_at * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+        reuseSelect.add(new Option(`${run.song_id} · ${when}${run.finished ? "" : " (not finished)"}`, run.song_id));
+      }
+      if (previous && reusableRuns.some((run) => run.song_id === previous)) reuseSelect.value = previous;
+      sourcePick.hidden = reusableRuns.length === 0;
+      if (selectId) setInputSource("reuse");
+      else updateInputSource();
+    }
+
+    form.querySelectorAll('input[name="input_source"]').forEach((input) => input.addEventListener("change", () => setInputSource(input.value)));
+    reuseSelect.addEventListener("change", updateInputSource);
+    for (const input of uploadInputs) {
+      input.addEventListener("change", () => {
+        if (input.files.length && reusingRun()) setInputSource("files");
+      });
+    }
+
+    librarySelect.addEventListener("change", () => {
+      if (usingSavedModel()) clearModelUpload();
+      updateModelRows();
+    });
+    for (const input of [form.elements.model_file, form.elements.model_folder_files]) {
+      input.addEventListener("change", () => {
+        if (input.files.length && usingSavedModel()) {
+          librarySelect.value = "upload";
+          updateModelRows();
+        }
+      });
+    }
+
+    // Cut settings
+    const cutRatioRange = $("cutRatioRange");
+    const cutRatioInput = form.elements.density_cut_percent;
+    const budgetRange = $("budgetRange");
+    const budgetInput = form.elements.density_budget_scale;
+
+    function cutMode() {
+      return form.querySelector('input[name="cut_selection_mode"]:checked')?.value || "global";
+    }
+
+    function updateCutUi() {
+      const mode = cutMode();
+      $("cutModeHelp").textContent = CUT_MODE_HELP[mode];
+      $("cutWindowField").hidden = mode !== "adaptive";
+      const percent = Math.max(0, Math.min(100, Number(cutRatioInput.value) || 0));
+      cutRatioRange.value = String(percent);
+      $("cutRatioReadout").innerHTML = `
+        <span>cut keyframes <b>${percent.toFixed(0)}%</b></span>
+        <span>transition keyframes <b>${(100 - percent).toFixed(0)}%</b></span>
+        <span>cut ratio λ <b>${(percent / 200).toFixed(2)}</b></span>`;
+      const scale = Math.max(0.25, Math.min(2, Number(budgetInput.value) || 1));
+      budgetRange.value = String(scale);
+      $("budgetReadout").innerHTML = scale === 1
+        ? `<span>the model's predicted number of keyframes</span>`
+        : `<span><b>${scale.toFixed(2)}×</b> the model's predicted number of keyframes</span>`;
+    }
+
+    cutRatioRange.addEventListener("input", () => {
+      cutRatioInput.value = cutRatioRange.value;
+      updateCutUi();
+    });
+    cutRatioInput.addEventListener("input", updateCutUi);
+    budgetRange.addEventListener("input", () => {
+      budgetInput.value = budgetRange.value;
+      updateCutUi();
+    });
+    budgetInput.addEventListener("change", updateCutUi);
+    form.querySelectorAll('input[name="cut_selection_mode"]').forEach((radio) => radio.addEventListener("change", updateCutUi));
+
+    function setDefault(element) {
+      if (element.type === "checkbox" || element.type === "radio") element.checked = element.defaultChecked;
+      else if (element.tagName === "SELECT") Array.from(element.options).forEach((option) => { option.selected = option.defaultSelected; });
+      else if (element.type !== "file") element.value = element.defaultValue;
+    }
+
+    function isChanged(element) {
+      if (element.type === "checkbox") return element.checked !== element.defaultChecked;
+      if (element.tagName === "SELECT") return Array.from(element.options).some((option) => option.selected !== option.defaultSelected);
+      if (element.type === "file") return Boolean(element.files?.length);
+      return element.value !== element.defaultValue;
+    }
+
+    function updateChangedMarks() {
+      document.querySelectorAll("#advancedCard details.group").forEach((group) => {
+        let count = 0;
+        group.querySelectorAll("input, select").forEach((element) => {
+          const changed = isChanged(element);
+          if (changed) count += 1;
+          element.closest(".param")?.classList.toggle("changed", changed);
+        });
+        const badge = group.querySelector(".changed-count");
+        badge.hidden = count === 0;
+        badge.textContent = `${count} changed`;
+      });
+    }
+
+    $("advancedCard").addEventListener("input", updateChangedMarks);
+    $("advancedCard").addEventListener("change", updateChangedMarks);
+
+    $("resetCutsBtn").addEventListener("click", () => {
+      form.querySelectorAll('input[name="cut_selection_mode"], input[name="density_cut_percent"], input[name="cut_window_sec"], input[name="density_budget_scale"]').forEach(setDefault);
+      updateCutUi();
+    });
+    $("resetAllBtn").addEventListener("click", () => {
+      $("advancedCard").querySelectorAll("input, select").forEach(setDefault);
+      updateChangedMarks();
+    });
+
+    function setFormNote(text, bad = false) {
+      const note = $("formNote");
+      note.textContent = text;
+      note.classList.toggle("bad", bad);
+    }
+
+    function missingInputs() {
+      if (reusingRun()) return [];
+      const has = (name) => Boolean(form.elements[name]?.files?.length || form.elements[name]?.value?.trim?.());
+      const missing = [];
+      if (!has("wav_file") && !has("wav_path")) missing.push("music");
+      if (!has("vmd_file") && !has("vmd_path") && !has("motion_json_file") && !has("motion_json_path")) missing.push("dance motion");
+      const hasModel = usingSavedModel() || hasModelUpload() || has("model_path") || appConfig.default_model;
+      if (!hasModel && !has("motion_json_file") && !has("motion_json_path")) missing.push("character model");
+      return missing;
+    }
+
+    /* ---------------- generate: jobs ---------------- */
+    let appConfig = {};
+    let currentJobId = null;
+    let pollTimer = null;
+
+    async function loadConfig() {
+      appConfig = await getJson("/api/unseen/config");
+      if (appConfig.default_model) {
+        $("modelLabel").innerHTML = "Character model <em>optional</em>";
+        const nameEl = document.querySelector('[data-file-name="model_file"]');
+        nameEl.dataset.empty = `Without one, the server uses ${appConfig.default_model}`;
+        updateFileRow(nameEl.closest("[data-file-drop]"));
+      }
+    }
+
+    function setStatus(text, status = "") {
+      const el = $("status");
+      el.textContent = text;
+      el.className = `pill ${status}`;
     }
 
     function renderProgress(job) {
+      const el = $("progress");
       const progress = job.progress || {};
-      const percent = Math.max(0, Math.min(100, Number(progress.percent || 0)));
       const status = String(job.status || "");
-      const eta = status === "completed"
-        ? "done"
-        : status === "failed"
-          ? "stopped"
-          : formatEta(progress.eta_sec);
-      const elapsed = formatSeconds(progress.elapsed_sec || 0);
-      const current = progress.current_step || (status === "queued" ? "Waiting to start" : "Preparing...");
-      const estimateNote = progress.is_estimate ? "rough ETA" : "actual";
-      const stepCount = progress.total_steps
-        ? `${progress.completed_steps || 0}/${progress.total_steps} steps`
-        : "";
-      progressPanel.className = `progress-panel ${escapeHtml(status)}`;
-      progressPanel.innerHTML = `
-        <div class="progress-top">
-          <b>${percent.toFixed(1)}%</b>
-          <span>${escapeHtml(estimateNote)}</span>
-        </div>
+      const percent = Math.max(0, Math.min(100, Number(progress.percent || 0)));
+      const step = status === "completed" ? "Finished" : progress.current_step || (status === "queued" ? "Waiting to start" : "Starting");
+      const eta = status === "running" && Number.isFinite(Number(progress.eta_sec)) && progress.eta_sec !== null
+        ? ` · about ${formatSeconds(progress.eta_sec)} left` : "";
+      const steps = progress.total_steps ? `${progress.completed_steps || 0}/${progress.total_steps} · ` : "";
+      el.hidden = false;
+      el.className = `progress ${status}`;
+      el.innerHTML = `
         <div class="progress-track"><i style="width:${percent.toFixed(1)}%"></i></div>
         <div class="progress-meta">
-          <span class="progress-step">${escapeHtml(current)}</span>
-          <span>${escapeHtml(stepCount)}</span>
-        </div>
-        <div class="progress-meta" style="margin-top:6px">
-          <span>elapsed ${escapeHtml(elapsed)}</span>
-          <span>ETA ${escapeHtml(eta)}</span>
-        </div>
-      `;
+          <span class="step">${escapeHtml(step)}</span>
+          <span class="nums">${steps}${formatSeconds(progress.elapsed_sec || 0)}${escapeHtml(eta)}</span>
+        </div>`;
     }
 
-    function renderTimings(job) {
+    // A finished run without an MP4 plays in the browser: the run's model and dance, its camera, and its song.
+    let resultLive = null;
+    let resultLiveJob = "";
+
+    async function showResultLive(job) {
+      if (resultLiveJob === job.id) return;
+      resultLiveJob = job.id;
+      const audio = $("resultAudio");
+      const note = (text) => {
+        if (resultLiveJob !== job.id) return;
+        $("videoEmpty").hidden = !text;
+        $("videoEmpty").textContent = text;
+      };
+      try {
+        note("Loading the 3D viewer...");
+        const result = (await getJson("/api/unseen/results")).find((item) => item.song_id === job.song_id);
+        if (!result?.model_url || !result.motion_url || !result.camera_vmd_url) {
+          note("This run has no MP4, and its model or dance is missing for Live 3D.");
+          return;
+        }
+        if (!resultLive) {
+          const { LivePreview } = await import("/music_processing/unseen_live_preview.js");
+          resultLive = new LivePreview($("resultLive"), () => audio.currentTime || 0);
+        }
+        if (resultLiveJob !== job.id) return;
+        audio.src = result.audio_url;
+        await resultLive.load({ modelUrl: result.model_url, motionUrl: result.motion_url, cameraUrl: result.camera_vmd_url, onStatus: note });
+        note("");
+      } catch (error) {
+        console.error(error);
+        if (resultLiveJob === job.id) resultLiveJob = "";
+        note("Live 3D could not start (it loads three.js from the internet). Render the MP4 instead.");
+      }
+    }
+
+    function renderVideo(job) {
+      const url = (job.artifacts || {}).preview_video?.url || "";
+      const video = $("previewVideo");
+      const live = !url && job.status === "completed" && Boolean(job.summary_url);
+      video.hidden = !url;
+      $("resultLive").hidden = !live;
+      $("resultAudio").hidden = !live;
+      if (!url) {
+        video.pause();
+        video.removeAttribute("src");
+      } else if (video.getAttribute("src") !== url) {
+        video.src = url;
+      }
+      if (live) {
+        showResultLive(job);
+        return;
+      }
+      $("resultAudio").pause();
+      resultLiveJob = "";
+      $("videoEmpty").hidden = Boolean(url);
+      if (!url) {
+        const status = String(job.status || "");
+        $("videoEmpty").textContent = status === "failed"
+          ? "The run stopped before the preview video."
+          : "The preview plays here when the run finishes.";
+      }
+    }
+
+    function renderActions(job) {
+      const artifacts = job.artifacts || {};
+      const s = job.summary || {};
+      const finished = job.status === "completed";
+      const canEdit = finished && Boolean(job.summary_url) && Boolean(s.shotplan?.final_shotplan_json || s.shot_plan_json);
+      const actions = [];
+      actions.push(`<button type="button" class="btn primary small" id="editJobBtn" ${canEdit ? "" : "disabled"}>Edit shot plan</button>`);
+      const vmd = artifacts.camera_vmd?.url;
+      actions.push(vmd
+        ? `<a class="btn small" href="${vmd}" download>Download camera VMD</a>`
+        : `<span class="btn small disabled">Download camera VMD</span>`);
+      if (job.summary_url) {
+        const debugUrl = `/music_processing/unseen_mmd_debug_viewer.html?summary=${encodeURIComponent(job.summary_url)}`;
+        actions.push(`<a class="btn ghost small" target="_blank" href="${debugUrl}">Debug viewer ↗</a>`);
+      }
+      if (job.viewer_url) actions.push(`<a class="btn ghost small" target="_blank" href="${job.viewer_url}">Timing viewer ↗</a>`);
+      if (finished && job.summary_url && !artifacts.preview_video?.url) {
+        const busy = renderingJobs.has(job.id);
+        actions.splice(2, 0, `<button type="button" class="btn small" id="renderMp4Btn" ${busy ? "disabled" : ""}>${busy ? "Rendering the MP4..." : "Render MP4"}</button>`);
+      }
+      $("actions").innerHTML = actions.join("");
+      $("renderMp4Btn")?.addEventListener("click", () => renderMp4(job));
+      $("editJobBtn").addEventListener("click", () => {
+        showTab("edit");
+        editor.openSummary(job.summary_url);
+      });
+    }
+
+    const renderingJobs = new Set();
+
+    async function renderMp4(job) {
+      renderingJobs.add(job.id);
+      if (currentJobId === job.id) renderActions(job);
+      try {
+        const response = await fetch("/api/unseen/render", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            summary_url: job.summary_url,
+            render_width: form.elements.render_preview_width.value,
+            render_height: form.elements.render_preview_height.value,
+            render_fps: form.elements.render_preview_fps.value,
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || response.statusText);
+      } catch (error) {
+        setFormNote(`The MP4 render failed: ${error.message || error}`, true);
+      } finally {
+        renderingJobs.delete(job.id);
+      }
+      if (currentJobId === job.id) renderJob(await getJson(`/api/unseen/jobs/${encodeURIComponent(job.id)}`));
+    }
+
+    function renderStages(job) {
+      const stages = job.stages || [];
+      $("stages").innerHTML = stages.map((stage) => `
+        <div class="stage">
+          <i class="dot ${escapeHtml(stage.status)}"></i>
+          <div><div class="name">${escapeHtml(stage.name)}</div><div class="desc">${escapeHtml(stage.description)}</div></div>
+          <span class="state">${escapeHtml(stage.status)}</span>
+        </div>`).join("");
+      const done = stages.filter((stage) => ["completed", "ok", "ready"].includes(stage.status)).length;
+      $("stagesSummary").textContent = stages.length ? `${done}/${stages.length} done` : "";
+
       const timing = job.summary?.timing_breakdown || {};
       const rows = Array.isArray(timing.stages) ? timing.stages : [];
       if (!rows.length) {
-        timingsEl.innerHTML = `<div class="hint">Timing appears after a completed run.</div>`;
+        $("timings").innerHTML = "";
         return;
       }
       const maxSec = Math.max(...rows.map((row) => Number(row.duration_sec || 0)), 0.001);
-      const detailRows = rows.map((row) => {
-          const duration = Number(row.duration_sec || 0);
-          const width = Math.max(2, Math.min(100, (duration / maxSec) * 100));
-          return `
-            <div class="timing-item">
-              <header>
-                <span>${escapeHtml(row.label || row.id)}</span>
-                <span>${formatSeconds(duration)}</span>
-              </header>
-              <small>${escapeHtml(row.status || "ok")}</small>
-              <div class="timing-bar"><i style="width:${width.toFixed(1)}%"></i></div>
-            </div>
-          `;
-        }).join("");
-      timingsEl.innerHTML = `
-        <div class="stat"><b>${formatSeconds(timing.total_sec)}</b><small>Total wall time</small></div>
-        <details class="timing-details">
-          <summary>
-            <span>Stage breakdown</span>
-            <span>${rows.length} stages</span>
-          </summary>
-          <div class="timing-list">${detailRows}</div>
-        </details>
-      `;
+      $("timings").innerHTML = `
+        <div class="timing-total"><b>${formatSeconds(timing.total_sec)}</b><span class="muted">total, by step</span></div>
+        ${rows.map((row) => {
+          const sec = Number(row.duration_sec || 0);
+          return `<div class="timing-row"><span>${escapeHtml(row.label || row.id)}</span><span class="bar"><i style="width:${Math.max(1.5, sec / maxSec * 100).toFixed(1)}%"></i></span><span class="sec">${formatSeconds(sec)}</span></div>`;
+        }).join("")}`;
     }
 
     function renderArtifacts(job) {
-      const artifacts = job.artifacts || {};
-      const entries = Object.entries(artifacts);
-      if (!entries.length) {
-        artifactsEl.innerHTML = `<div class="hint">Artifacts will appear after a job starts.</div>`;
-        return;
-      }
-      artifactsEl.innerHTML = entries.map(([key, item]) => {
+      $("outputPath").textContent = job.summary?.output_dir || job.output_dir || "";
+      const entries = Object.entries(job.artifacts || {});
+      $("artifacts").innerHTML = entries.map(([key, item]) => {
         const label = escapeHtml(item.label || key);
-        const status = escapeHtml(item.status || "pending");
-        const stage = escapeHtml(item.stage || "");
-        const body = item.url
-          ? `<a target="_blank" href="${item.url}">${label}</a>`
-          : `<b>${label}</b>`;
-        return `
-          <div class="artifact-item">
-            <div>${body}<small>${stage}</small></div>
-            <span class="artifact-status">${status}</span>
-          </div>
-        `;
-      }).join("");
+        const name = item.url ? `<a target="_blank" href="${item.url}">${label}</a>` : `<span>${label}</span>`;
+        return `<div class="file-link">${name}<span class="stage-name">${escapeHtml(item.stage || "")}</span><span class="state">${escapeHtml(item.status || "pending")}</span></div>`;
+      }).join("") || `<span class="muted">Files appear once a run starts.</span>`;
     }
 
-    function renderPreview(job) {
-      const preview = (job.artifacts || {}).preview_video || {};
-      const url = preview.url || "";
-      if (!url) {
-        previewPanel.classList.remove("show");
-        previewVideo.removeAttribute("src");
-        previewCaption.textContent = "";
+    function renderError(job) {
+      const box = $("errorBox");
+      if (job.status !== "failed") {
+        box.hidden = true;
         return;
       }
-      previewPanel.classList.add("show");
-      if (previewVideo.getAttribute("src") !== url) {
-        previewVideo.src = url;
-      }
-      previewCaption.innerHTML = `Preview MP4: <a target="_blank" href="${url}">${escapeHtml(url)}</a>`;
+      const lines = (job.log || []).filter((line) => line.trim());
+      const tail = lines.slice(-14).join("\n");
+      box.hidden = false;
+      box.innerHTML = `<b>The run failed.</b> ${escapeHtml(job.error || "")}<pre>${escapeHtml(tail)}</pre>`;
     }
 
     function renderJob(job) {
       currentJobId = job.id;
-      setStatus(`${job.status} | ${job.song_id}`, job.status);
-      logEl.textContent = (job.log || []).join("\n") || "No log yet.";
-      logEl.scrollTop = logEl.scrollHeight;
-
+      $("jobTitle").textContent = job.song_id || job.id;
+      setStatus(job.status, job.status);
+      renderProgress(job);
+      renderVideo(job);
       const s = job.summary || {};
       const shotplan = s.shotplan || {};
-      renderProgress(job);
-      summaryEl.innerHTML = [
-        stat("mode", job.pipeline_mode || "timing_only"),
-        stat("optimization", shotplan.optimization_status || "pending"),
-        stat("cuts", s.selected_cut_count),
-        stat("transition frames", s.selected_noncut_keyframe_count),
-        stat("total keys", s.selected_total_keyframe_count),
-        stat("frames", s.num_frames),
-        stat("duration sec", s.duration_sec),
-        stat("inference time", s.timing_breakdown ? formatSeconds(s.timing_breakdown.total_sec) : "-"),
-        stat("return code", job.returncode),
+      $("stats").innerHTML = [
+        stat("cuts", s.selected_cut_count, "cut"),
+        stat("transitions", s.selected_noncut_keyframe_count, "trans"),
+        stat("keyframes", s.selected_total_keyframe_count),
+        stat("length", s.duration_sec ? `${Number(s.duration_sec).toFixed(1)} s` : null),
+        stat("run time", s.timing_breakdown ? formatSeconds(s.timing_breakdown.total_sec) : null),
+        stat("CP-SAT", shotplan.optimization_status || (job.status === "completed" ? "-" : "pending")),
       ].join("");
-
-      renderTimings(job);
+      renderActions(job);
       renderStages(job);
       renderArtifacts(job);
-      renderPreview(job);
+      renderError(job);
+      const log = $("log");
+      log.textContent = (job.log || []).join("\n") || "No log yet.";
+      log.scrollTop = log.scrollHeight;
+      if (job.status === "failed") $("logFold").open = true;
+      $("jobSelect").value = job.id;
 
-      const links = [];
-      if (job.viewer_url) links.push(`<a target="_blank" href="${job.viewer_url}">Open timing viewer</a>`);
-      if (job.summary_url) {
-        const debugUrl = `/music_processing/unseen_mmd_debug_viewer.html?summary=${encodeURIComponent(job.summary_url)}`;
-        links.push(`<a target="_blank" href="${debugUrl}">Open pipeline debug viewer</a>`);
-        const editUrl = `/music_processing/shotplan_edit_viewer.html?summary=${encodeURIComponent(job.summary_url)}`;
-        links.push(`<a target="_blank" href="${editUrl}">Edit shot plan / re-render</a>`);
-      }
-      if (job.result_url) links.push(`<a target="_blank" href="${job.result_url}">final_cut_key_timings.json</a>`);
-      if (job.summary_url) links.push(`<a target="_blank" href="${job.summary_url}">summary.json</a>`);
-      if (shotplan.topk_candidates_json) links.push(`<span>Top-k: <code>${escapeHtml(shotplan.topk_candidates_json)}</code></span>`);
-      if (shotplan.optimization_json) links.push(`<span>Optimized plan: <code>${escapeHtml(shotplan.optimization_json)}</code></span>`);
-      if (shotplan.optimization_debug) links.push(`<span>Optimizer debug: <code>${escapeHtml(shotplan.optimization_debug)}</code></span>`);
-      if (s.shot_plan_json) links.push(`<span>Shot plan: <code>${escapeHtml(s.shot_plan_json)}</code></span>`);
-      if (s.camera_vmd) links.push(`<span>Camera VMD: <code>${escapeHtml(s.camera_vmd)}</code></span>`);
-      if (s.preview_video) links.push(`<span>Preview MP4: <code>${escapeHtml(s.preview_video)}</code></span>`);
-      if (s.output_dir) links.push(`<span>Output: <code>${s.output_dir}</code></span>`);
-      if (job.error) links.push(`<span style="color:var(--danger)">Error: ${job.error}</span>`);
-      linksEl.innerHTML = links.join("");
-
-      if (job.status === "running" || job.status === "queued") {
-        startPolling();
-      } else {
-        stopPolling();
-      }
-    }
-
-    async function fetchJob(jobId) {
-      const response = await fetch(`/api/unseen/jobs/${encodeURIComponent(jobId)}`);
-      if (!response.ok) throw new Error(await response.text());
-      return response.json();
+      if (job.status === "running" || job.status === "queued") startPolling();
+      else stopPolling();
     }
 
     async function refreshCurrent() {
       if (!currentJobId) return;
-      const job = await fetchJob(currentJobId);
-      renderJob(job);
-      await refreshJobs();
+      const before = $("status").textContent;
+      renderJob(await getJson(`/api/unseen/jobs/${encodeURIComponent(currentJobId)}`));
+      if (before !== $("status").textContent) await refreshJobs();
     }
 
     function startPolling() {
-      if (pollTimer) return;
-      pollTimer = setInterval(() => refreshCurrent().catch(console.error), 1800);
+      if (!pollTimer) pollTimer = setInterval(() => refreshCurrent().catch(console.error), 1800);
     }
 
     function stopPolling() {
@@ -1152,55 +2011,992 @@
     }
 
     async function refreshJobs() {
-      const response = await fetch("/api/unseen/jobs");
-      if (!response.ok) throw new Error(await response.text());
-      const jobs = await response.json();
-      if (!jobs.length) {
-        jobsEl.innerHTML = `<div class="hint">No jobs yet.</div>`;
-        return;
-      }
-      jobsEl.innerHTML = jobs.map((job) => `
-        <div class="job-item" data-job-id="${job.id}">
-          <b>${job.song_id}</b>
-          <small>${job.status} | ${job.created_at_text}</small>
-        </div>
-      `).join("");
-      jobsEl.querySelectorAll(".job-item").forEach((el) => {
-        el.addEventListener("click", async () => {
-          const job = await fetchJob(el.dataset.jobId);
-          renderJob(job);
-        });
-      });
-      if (!currentJobId && jobs[0]) {
-        renderJob(jobs[0]);
-      }
+      const jobs = await getJson("/api/unseen/jobs");
+      $("jobSelect").innerHTML = jobs.length
+        ? jobs.map((job) => `<option value="${escapeHtml(job.id)}">${escapeHtml(job.song_id)} · ${escapeHtml(job.status)} · ${escapeHtml(job.created_at_text.slice(11, 16))}</option>`).join("")
+        : `<option value="">No runs yet</option>`;
+      if (!jobs.length) $("videoEmpty").textContent = "The preview plays here when a run finishes. Runs from earlier server sessions open in the Edit tab.";
+      if (currentJobId) $("jobSelect").value = currentJobId;
+      else if (jobs[0]) renderJob(jobs[0]);
     }
+
+    $("jobSelect").addEventListener("change", async (event) => {
+      if (event.target.value) renderJob(await getJson(`/api/unseen/jobs/${encodeURIComponent(event.target.value)}`));
+    });
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      runBtn.disabled = true;
-      setStatus("uploading...", "running");
-      logEl.textContent = "Uploading inputs and starting pipeline...";
+      const missing = missingInputs();
+      if (missing.length) {
+        setFormNote(`Add the ${missing.join(", ")} first.`, true);
+        return;
+      }
+      $("runBtn").disabled = true;
+      setFormNote("Uploading...");
       try {
-        const response = await fetch("/api/unseen/jobs", {
-          method: "POST",
-          body: new FormData(form),
-        });
+        const data = new FormData(form);
+        // An unchecked box sends nothing, and the server keeps the calibration on unless told otherwise.
+        if (!form.elements.shotplan_height_calibration_mode.checked) data.set("shotplan_height_calibration_mode", "off");
+        const reused = reusingRun();
+        data.delete("input_source");
+        // Only one source of inputs goes to the server: the earlier run, or the files and model chosen here.
+        if (reused) data.delete("library_model");
+        else data.delete("reuse_run");
+        const response = await fetch("/api/unseen/jobs", { method: "POST", body: data });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error || JSON.stringify(payload));
+        setFormNote("");
+        const uploadedFiles = !reused;
+        if (hasModelUpload()) {
+          // The server kept the uploaded model; the next run picks it from the saved list instead of uploading it again.
+          clearModelUpload();
+          librarySelect.value = "";
+        }
+        loadModels().catch(console.error);
+        // After new files, offer this run's inputs for the next run so only the settings need changing.
+        loadReusableRuns(uploadedFiles ? payload.song_id : "").catch(console.error);
         renderJob(payload);
         await refreshJobs();
       } catch (error) {
-        setStatus("failed", "failed");
-        logEl.textContent = String(error && error.stack || error);
+        setFormNote(String(error.message || error), true);
       } finally {
-        runBtn.disabled = false;
+        $("runBtn").disabled = false;
       }
     });
 
-    refreshBtn.addEventListener("click", () => refreshJobs().catch(console.error));
-    loadConfig().catch(console.error);
+    /* ---------------- edit ---------------- */
+    const FIELD_OPTIONS = {
+      target_anchor: ["feet", "lower_leg", "thigh", "hip", "waist", "chest", "face"],
+      distance: ["extreme_close", "very_close", "close", "medium_close", "medium", "medium_far", "far"],
+      fov: ["wide", "normal", "narrow"],
+      yaw: ["front", "left_45", "profile_left", "back_left_45", "back", "back_right_45", "profile_right", "right_45"],
+      pitch: ["top", "high", "level", "low"],
+      composition: ["left_third", "center", "right_third"],
+      roll: ["strong_left", "left", "slight_left", "none", "slight_right", "right", "strong_right"],
+      interpolation: ["linear", "ease_in", "ease_out", "ease_in_out"],
+    };
+    const EDIT_FIELDS = Object.keys(FIELD_OPTIONS);
+    const FIELD_TITLES = {
+      target_anchor: "Target", distance: "Distance", fov: "FoV", yaw: "Yaw",
+      pitch: "Pitch", composition: "Composition", roll: "Roll", interpolation: "Easing",
+    };
+    const SHORT_LABELS = {
+      extreme_close: "ext. close", medium_close: "med. close", medium_far: "med. far",
+      left_third: "left", right_third: "right", ease_in_out: "ease in-out",
+    };
+    const YAW_HUE = {
+      front: 145, left_45: 185, profile_left: 215, back_left_45: 255,
+      back: 340, back_right_45: 15, profile_right: 40, right_45: 90,
+    };
+    const NEUTRAL = "hsl(40 10% 92%)";
+    const FIXED_COLORS = {
+      pitch: { top: "hsl(330 60% 76%)", high: "hsl(330 45% 86%)", level: NEUTRAL, low: "hsl(190 45% 82%)" },
+      composition: { left_third: "hsl(205 55% 85%)", center: NEUTRAL, right_third: "hsl(28 65% 84%)" },
+      roll: {
+        strong_left: "hsl(205 60% 72%)", left: "hsl(205 55% 81%)", slight_left: "hsl(205 50% 89%)", none: NEUTRAL,
+        slight_right: "hsl(25 60% 89%)", right: "hsl(25 65% 81%)", strong_right: "hsl(25 70% 72%)",
+      },
+      interpolation: { linear: NEUTRAL, ease_in: "hsl(170 45% 85%)", ease_out: "hsl(120 35% 86%)", ease_in_out: "hsl(150 45% 76%)" },
+    };
+
+    function shortLabel(value) {
+      return SHORT_LABELS[value] || String(value ?? "").replace(/_/g, " ");
+    }
+
+    function valueColor(field, value) {
+      const index = FIELD_OPTIONS[field].indexOf(value);
+      if (index < 0) return "hsl(0 0% 88%)";
+      const ramp = (hue, sat, from, to) => `hsl(${hue} ${sat}% ${from + (to - from) * index / (FIELD_OPTIONS[field].length - 1)}%)`;
+      if (field === "target_anchor") return ramp(28, 70, 92, 68);
+      if (field === "distance") return ramp(215, 60, 68, 93);
+      if (field === "fov") return ramp(265, 45, 91, 72);
+      if (field === "yaw") return `hsl(${YAW_HUE[value]} 55% 82%)`;
+      return FIXED_COLORS[field][value];
+    }
+
+    const editor = (() => {
+      const MAX_PX_PER_SEC = 320;
+      const state = {
+        loaded: false,
+        results: [],
+        result: null,
+        version: null,
+        keyframes: [],
+        base: [],
+        cuts: new Set(),
+        baseByFrame: new Map(),
+        history: [],
+        fps: 30,
+        duration: 1,
+        busy: false,
+        selected: -1,
+        time: 0,
+        pxPerSec: 30,
+        applyShot: false,
+        raf: 0,
+        mode: "live",
+        live: null,
+        liveRun: null,
+        liveStatus: "",
+      };
+      const video = $("editVideo");
+      const audio = $("editAudio");
+      const scroller = $("tlScroll");
+      const content = $("tlContent");
+      const inspector = $("inspector");
+
+      /* ----- data ----- */
+      function versionsOf(result) {
+        if (!result) return [];
+        const original = { id: "original", label: "Original output", plan_url: result.plan_url, video_url: result.video_url, vmd_url: result.camera_vmd_url };
+        const edits = (result.edits || []).map((edit, index) => ({
+          id: edit.plan_url,
+          label: `Edit ${index + 1} · ${new Date(edit.created_at * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}${edit.video_url ? "" : " (no video)"}`,
+          plan_url: edit.plan_url,
+          video_url: edit.video_url,
+          vmd_url: edit.vmd_url,
+        }));
+        return [original, ...edits];
+      }
+
+      // Edits are compared with the loaded version by frame, so they stay right after keyframes are deleted.
+      function setBase(rows) {
+        state.base = rows.map((row) => ({ ...row }));
+        state.baseByFrame = new Map(state.base.map((row) => [Number(row.frame), row]));
+      }
+
+      function baseRow(index) {
+        return state.baseByFrame.get(frameOf(index));
+      }
+
+      function isEdited(index, field = null) {
+        const fields = field ? [field] : EDIT_FIELDS;
+        const base = baseRow(index);
+        return fields.some((name) => state.keyframes[index]?.[name] !== base?.[name]);
+      }
+
+      function editedCount() {
+        return state.keyframes.reduce((count, _row, index) => count + (!isAdded(index) && isEdited(index) ? 1 : 0), 0);
+      }
+
+      function isAdded(index) {
+        return !state.baseByFrame.has(frameOf(index));
+      }
+
+      function addedCount() {
+        return state.keyframes.reduce((count, _row, index) => count + (isAdded(index) ? 1 : 0), 0);
+      }
+
+      function deletedFrames() {
+        const kept = new Set(state.keyframes.map((row) => Number(row.frame)));
+        return state.base.map((row) => Number(row.frame)).filter((frame) => !kept.has(frame));
+      }
+
+      function dirtyCount() {
+        return editedCount() + addedCount() + deletedFrames().length;
+      }
+
+      function updateCuts() {
+        state.cuts = new Set(state.keyframes.filter((row) => row.stage === "cut").map((row) => Number(row.frame)));
+      }
+
+      function pushHistory() {
+        state.history.push({ keyframes: state.keyframes.map((row) => ({ ...row })), selected: state.selected });
+        if (state.history.length > 200) state.history.shift();
+      }
+
+      function undo() {
+        const last = state.history.pop();
+        if (!last || state.busy) return;
+        state.keyframes = last.keyframes;
+        state.selected = Math.min(last.selected, state.keyframes.length - 1);
+        afterEdit();
+        setEditStatus("");
+      }
+
+      function confirmDiscard() {
+        return dirtyCount() === 0 || confirm("Discard your unsaved edits?");
+      }
+
+      function setEditStatus(text) {
+        $("editStatus").textContent = text;
+      }
+
+      function frameOf(index) {
+        return Number(state.keyframes[index]?.frame || 0);
+      }
+
+      function totalFrames() {
+        return Math.max(1, state.duration * state.fps);
+      }
+
+      function eventKind(index) {
+        if (state.keyframes[index]?.stage === "cut") return "cut";
+        return state.cuts.has(frameOf(index) + 1) ? "precut" : "trans";
+      }
+
+      function indexAtTime(sec) {
+        const frame = sec * state.fps + 1e-3;
+        let found = 0;
+        for (let i = 0; i < state.keyframes.length; i += 1) {
+          if (frameOf(i) <= frame) found = i;
+          else break;
+        }
+        return found;
+      }
+
+      function shotRange(index) {
+        let start = index;
+        while (start > 0 && state.keyframes[start].stage !== "cut") start -= 1;
+        let end = index + 1;
+        while (end < state.keyframes.length && state.keyframes[end].stage !== "cut") end += 1;
+        return { start, end };
+      }
+
+      async function loadResults(preferSummary = null, preferPlan = null) {
+        state.results = await getJson("/api/unseen/results");
+        state.loaded = true;
+        const empty = state.results.length === 0;
+        $("editEmpty").hidden = !empty;
+        $("editLayout").hidden = empty;
+        $("resultSelect").innerHTML = state.results.map((result, index) => {
+          const when = new Date(result.updated_at * 1000).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+          return `<option value="${index}">${escapeHtml(result.song_id)} · ${escapeHtml(when)}</option>`;
+        }).join("");
+        if (empty) return;
+        const summary = preferSummary || state.result?.summary_url;
+        let index = state.results.findIndex((result) => result.summary_url === summary);
+        if (index < 0) index = 0;
+        $("resultSelect").value = String(index);
+        const keepPlan = preferPlan || (state.result?.summary_url === summary ? state.version?.plan_url : null);
+        await selectResult(index, keepPlan);
+      }
+
+      async function selectResult(index, preferPlan = null) {
+        const sameRun = state.result?.summary_url === state.results[index]?.summary_url;
+        state.result = state.results[index];
+        const versions = versionsOf(state.result);
+        $("versionSelect").innerHTML = versions.map((version) => `<option value="${escapeHtml(version.id)}">${escapeHtml(version.label)}</option>`).join("");
+        const version = versions.find((item) => item.plan_url === preferPlan) || versions[0];
+        $("versionSelect").value = version.id;
+        await loadVersion(version, !sameRun);
+      }
+
+      async function loadVersion(version, resetView = false) {
+        setEditStatus("Loading...");
+        const plan = await getJson(version.plan_url);
+        state.version = version;
+        state.keyframes = (plan.keyframes || []).map((row) => ({ ...row })).sort((a, b) => Number(a.frame) - Number(b.frame));
+        setBase(state.keyframes);
+        state.history = [];
+        updateCuts();
+        state.fps = Number(plan.timeline_fps || plan.sample_fps || 30);
+        const lastFrame = state.keyframes.length ? frameOf(state.keyframes.length - 1) : 0;
+        state.duration = Number(state.result.duration_sec) || (lastFrame + state.fps) / state.fps;
+        const keepTime = resetView ? 0 : currentTime();
+        media().pause();
+        state.time = keepTime;
+        setSource(video, version.video_url);
+        setSource(audio, state.result.audio_url);
+        updateViewer();
+        buildTimeline();
+        if (resetView) setZoom(30, 0);
+        else setZoom(state.pxPerSec, keepTime);
+        select(resetView ? 0 : indexAtTime(keepTime), { reveal: resetView });
+        renderCounts();
+        setEditStatus("");
+        if (state.mode === "live") startLive();
+      }
+
+      /* ----- timeline ----- */
+      function pct(frame) {
+        return `${(Math.max(0, Math.min(1, Number(frame) / totalFrames())) * 100).toFixed(4)}%`;
+      }
+
+      function span(fromFrame, toFrame) {
+        return `${(Math.max(0, toFrame - fromFrame) / totalFrames() * 100).toFixed(4)}%`;
+      }
+
+      function buildTimeline() {
+        $("tlHeads").innerHTML = ['<div class="tl-head"></div>', '<div class="tl-head">events</div>',
+          ...EDIT_FIELDS.map((field) => `<div class="tl-head">${FIELD_TITLES[field]}</div>`)].join("");
+        content.innerHTML = `
+          <div class="tl-ruler" id="tlRuler"></div>
+          <div class="tl-lane" data-lane="events"></div>
+          ${EDIT_FIELDS.map((field) => `<div class="tl-lane" data-lane="${field}"></div>`).join("")}
+          <div id="tlCutlines"></div>
+          <div class="tl-sel" id="tlSel"></div>
+          <div class="tl-playhead" id="tlPlayhead"></div>`;
+        renderLanes();
+      }
+
+      function renderLanes() {
+        const total = totalFrames();
+        const events = state.keyframes.map((row, index) => {
+          const kind = eventKind(index);
+          const tick = kind === "precut" ? "" : `<i class="tl-evt ${kind === "cut" ? "cut" : ""}" style="left:${pct(row.frame)}"></i>`;
+          return tick + (isEdited(index) ? `<i class="tl-dot" style="left:${pct(row.frame)}"></i>` : "");
+        }).join("");
+        const ghosts = deletedFrames().map((frame) => `<i class="tl-ghost" style="left:${pct(frame)}" title="Deleted keyframe at frame ${frame}"></i>`).join("");
+        content.querySelector('[data-lane="events"]').innerHTML = events + ghosts;
+        content.querySelector("#tlCutlines").innerHTML = [...state.cuts].map((frame) => `<i class="tl-cutline" style="left:${pct(frame)}"></i>`).join("");
+
+        for (const field of EDIT_FIELDS) {
+          const runs = [];
+          state.keyframes.forEach((row, index) => {
+            const value = row[field] ?? "";
+            const last = runs[runs.length - 1];
+            if (last && last.value === value && row.stage !== "cut") last.end = index;
+            else runs.push({ value, start: index, end: index });
+          });
+          const blocks = runs.map((run) => {
+            const from = frameOf(run.start);
+            const to = run.end + 1 < state.keyframes.length ? frameOf(run.end + 1) : total;
+            return `<i class="tl-block" data-sec="${((to - from) / state.fps).toFixed(3)}" style="left:${pct(from)};width:${span(from, to)};background:${valueColor(field, run.value)}" title="${FIELD_TITLES[field]}: ${escapeHtml(run.value)}">${escapeHtml(shortLabel(run.value))}</i>`;
+          }).join("");
+          const dots = state.keyframes.map((row, index) => isEdited(index, field) ? `<i class="tl-dot" style="left:${pct(row.frame)}"></i>` : "").join("");
+          content.querySelector(`[data-lane="${field}"]`).innerHTML = blocks + dots;
+        }
+        markTightBlocks();
+        updateSelection();
+        updatePlayhead();
+      }
+
+      function markTightBlocks() {
+        content.querySelectorAll(".tl-block").forEach((block) => {
+          block.classList.toggle("tight", Number(block.dataset.sec) * state.pxPerSec < 34);
+        });
+      }
+
+      function renderRuler() {
+        const steps = [0.5, 1, 2, 5, 10, 15, 30, 60];
+        const step = steps.find((value) => value * state.pxPerSec >= 64) || 60;
+        const minor = step / (step >= 10 ? 5 : 2);
+        const ratio = Math.round(step / minor);
+        const count = Math.floor(state.duration / minor);
+        const ticks = [];
+        for (let k = 0; k <= count; k += 1) {
+          const sec = k * minor;
+          const major = k % ratio === 0;
+          const left = `${(sec / state.duration * 100).toFixed(4)}%`;
+          ticks.push(major
+            ? `<i class="tl-tick major" style="left:${left}"><span>${step < 1 ? clockText(sec).slice(0, -1) : clockText(sec).replace(/\.\d+$/, "")}</span></i>`
+            : `<i class="tl-tick" style="left:${left}"></i>`);
+        }
+        $("tlRuler").innerHTML = ticks.join("");
+      }
+
+      function fitPxPerSec() {
+        return Math.max(1, scroller.clientWidth / Math.max(0.1, state.duration));
+      }
+
+      function zoomToSlider(pxPerSec) {
+        const fit = fitPxPerSec();
+        if (MAX_PX_PER_SEC <= fit) return 0;
+        return Math.round(100 * Math.log(pxPerSec / fit) / Math.log(MAX_PX_PER_SEC / fit));
+      }
+
+      function setZoom(pxPerSec, anchorSec = currentTime()) {
+        const fit = fitPxPerSec();
+        const next = Math.max(fit, Math.min(MAX_PX_PER_SEC, pxPerSec));
+        const offset = anchorSec * state.pxPerSec - scroller.scrollLeft;
+        state.pxPerSec = next;
+        content.style.width = `${Math.round(state.duration * next)}px`;
+        scroller.scrollLeft = Math.max(0, anchorSec * next - offset);
+        $("zoomRange").value = String(zoomToSlider(next));
+        renderRuler();
+        markTightBlocks();
+      }
+
+      function updateSelection() {
+        const sel = content.querySelector("#tlSel");
+        if (!sel || state.selected < 0) return;
+        const from = frameOf(state.selected);
+        const to = state.selected + 1 < state.keyframes.length ? frameOf(state.selected + 1) : totalFrames();
+        sel.style.left = pct(from);
+        sel.style.width = span(from, Math.max(to, from + 1));
+      }
+
+      function reveal(sec) {
+        const x = sec * state.pxPerSec;
+        const left = scroller.scrollLeft;
+        const width = scroller.clientWidth;
+        if (x < left + 30 || x > left + width - 30) scroller.scrollLeft = Math.max(0, x - width * 0.3);
+      }
+
+      /* ----- playback ----- */
+      // Live 3D follows the song's WAV; Rendered follows the MP4. Both share the timeline and the keyframe stepping.
+      function media() {
+        return state.mode === "live" ? audio : video;
+      }
+
+      function playable(element) {
+        return Boolean(element.getAttribute("src")) && element.readyState > 0;
+      }
+
+      function setSource(element, url) {
+        if (!url) {
+          if (element.getAttribute("src")) {
+            element.removeAttribute("src");
+            element.load();
+          }
+          return;
+        }
+        if (element.getAttribute("src") === url) return;
+        element.src = url;
+        element.addEventListener("loadedmetadata", () => { element.currentTime = state.time; }, { once: true });
+      }
+
+      function currentTime() {
+        const element = media();
+        return playable(element) ? element.currentTime : state.time;
+      }
+
+      function seekTime(sec) {
+        const clamped = Math.max(0, Math.min(state.duration, sec));
+        state.time = clamped;
+        if (playable(media())) media().currentTime = clamped;
+        updatePlayhead();
+      }
+
+      function togglePlay() {
+        const element = media();
+        if (!element.getAttribute("src")) return;
+        if (element.paused) element.play().catch(() => {});
+        else element.pause();
+      }
+
+      function updatePlayhead() {
+        const sec = currentTime();
+        const head = content.querySelector("#tlPlayhead");
+        if (head) head.style.left = `${(sec / Math.max(0.001, state.duration) * 100).toFixed(4)}%`;
+        $("timecode").innerHTML = `${clockText(sec)} <small>/ ${clockText(state.duration)} · frame ${Math.floor(sec * state.fps)}</small>`;
+        if (!media().paused && $("followPlayback").checked) {
+          const x = sec * state.pxPerSec;
+          const left = scroller.scrollLeft;
+          const width = scroller.clientWidth;
+          if (x > left + width * 0.85 || x < left) scroller.scrollLeft = Math.max(0, x - width * 0.15);
+        }
+      }
+
+      function tick() {
+        updatePlayhead();
+        state.raf = media().paused ? 0 : requestAnimationFrame(tick);
+      }
+
+      for (const element of [video, audio]) {
+        const active = (event) => event.target === media();
+        element.addEventListener("play", (event) => {
+          if (!active(event)) return;
+          $("playBtn").textContent = "Pause";
+          if (!state.raf) state.raf = requestAnimationFrame(tick);
+        });
+        // Animation frames stop while the page is hidden; timeupdate keeps the playhead moving then.
+        element.addEventListener("timeupdate", (event) => {
+          if (active(event)) updatePlayhead();
+        });
+        element.addEventListener("pause", (event) => {
+          if (!active(event)) return;
+          $("playBtn").textContent = "Play";
+          updatePlayhead();
+          select(indexAtTime(currentTime()), { reveal: false });
+        });
+        element.addEventListener("seeked", (event) => {
+          if (!active(event)) return;
+          updatePlayhead();
+          if (element.paused) select(indexAtTime(currentTime()), { reveal: false });
+        });
+      }
+
+      /* ----- live 3D ----- */
+      function updateViewer() {
+        const live = state.mode === "live";
+        $("liveStage").hidden = !live;
+        video.hidden = live || !state.version?.video_url;
+        $("editVideoEmpty").hidden = live || Boolean(state.version?.video_url);
+        updateBadge();
+      }
+
+      function updateBadge() {
+        let text = state.liveStatus;
+        if (!text && state.mode === "video" && dirtyCount() > 0) text = "The render shows the saved version. Switch to Live 3D to see your edits.";
+        $("liveBadge").textContent = text;
+        $("liveBadge").hidden = !text;
+      }
+
+      function setLiveStatus(text) {
+        state.liveStatus = text;
+        updateBadge();
+      }
+
+      async function startLive() {
+        const result = state.result;
+        if (!result) return;
+        if (!result.model_url || !result.motion_url) {
+          setLiveStatus("");
+          setMode("video");
+          setEditStatus("Live 3D needs the run's model and dance files, which are missing.");
+          return;
+        }
+        try {
+          if (!state.live) {
+            setLiveStatus("Loading the 3D viewer...");
+            const { LivePreview } = await import("/music_processing/unseen_live_preview.js");
+            state.live = new LivePreview($("liveStage"), () => currentTime());
+          }
+          if (state.liveRun !== result.summary_url) {
+            state.liveRun = result.summary_url;
+            await state.live.load({
+              modelUrl: result.model_url,
+              motionUrl: result.motion_url,
+              cameraUrl: state.version.vmd_url,
+              onStatus: setLiveStatus,
+            });
+          }
+          await refreshLiveCamera();
+        } catch (error) {
+          console.error(error);
+          state.liveRun = null;
+          setLiveStatus("");
+          setMode("video");
+          setEditStatus("Live 3D could not start (it loads three.js from the internet). Showing the rendered video.");
+        }
+      }
+
+      let liveSeq = 0;
+      let liveTimer = 0;
+
+      async function refreshLiveCamera() {
+        if (state.mode !== "live" || !state.live || state.liveRun !== state.result?.summary_url) return;
+        const seq = ++liveSeq;
+        let url = state.version.vmd_url;
+        if (dirtyCount() > 0) {
+          setLiveStatus("Updating the camera...");
+          const response = await fetch("/api/unseen/shotplan/camera", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              summary_url: state.result.summary_url,
+              source_plan_url: state.version.plan_url,
+              keyframes: state.keyframes,
+            }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || response.statusText);
+          url = result.vmd_url;
+        }
+        if (seq !== liveSeq) return;
+        await state.live.setCamera(url);
+        if (seq === liveSeq) setLiveStatus("");
+      }
+
+      function scheduleLiveCamera() {
+        clearTimeout(liveTimer);
+        liveTimer = setTimeout(() => refreshLiveCamera().catch((error) => {
+          setLiveStatus("");
+          showError(error);
+        }), 120);
+      }
+
+      function setMode(mode) {
+        if (mode === state.mode) return;
+        const sec = currentTime();
+        media().pause();
+        state.mode = mode;
+        state.time = sec;
+        if (playable(media())) media().currentTime = sec;
+        document.querySelector(`input[name="viewMode"][value="${mode}"]`).checked = true;
+        $("playBtn").textContent = "Play";
+        updateViewer();
+        if (mode === "live") startLive();
+      }
+
+      document.querySelectorAll('input[name="viewMode"]').forEach((radio) => {
+        radio.addEventListener("change", () => setMode(radio.value));
+      });
+      $("playBtn").addEventListener("click", (event) => {
+        event.currentTarget.blur();
+        togglePlay();
+      });
+
+      /* ----- inspector ----- */
+      function select(index, { seek = false, reveal: show = true } = {}) {
+        if (!state.keyframes.length) return;
+        state.selected = Math.max(0, Math.min(state.keyframes.length - 1, index));
+        if (seek) seekTime(frameOf(state.selected) / state.fps + 0.0005);
+        if (show) reveal(frameOf(state.selected) / state.fps);
+        updateSelection();
+        renderInspector();
+      }
+
+      function renderInspector() {
+        const index = state.selected;
+        const row = state.keyframes[index];
+        if (!row) {
+          inspector.innerHTML = `<div class="empty-state">Click a block in the timeline to pick a keyframe.</div>`;
+          return;
+        }
+        const kind = eventKind(index);
+        const kindLabel = { cut: "cut", precut: "pre-cut", trans: "transition" }[kind];
+        const frame = frameOf(index);
+        const deletion = deletionRange(index);
+        const deletable = !state.busy && !deletion.includes(0);
+        const added = isAdded(index);
+        const fields = EDIT_FIELDS.map((field) => {
+          const value = row[field] ?? "";
+          const base = baseRow(index)?.[field] ?? "";
+          const changed = !added && value !== base;
+          // Easing shapes the motion to the next keyframe; a pre-cut frame's next keyframe is the cut one frame later.
+          const disabled = state.busy || (field === "interpolation" && kind === "precut");
+          const options = [...new Set([...FIELD_OPTIONS[field], value].filter(Boolean))];
+          const chips = options.map((option) => `
+            <button type="button" class="chip ${option === value ? "on" : ""} ${changed && option === base ? "base" : ""}" data-field="${field}" data-value="${escapeHtml(option)}" ${disabled ? "disabled" : ""}>
+              <i style="background:${valueColor(field, option)}"></i>${escapeHtml(shortLabel(option))}
+            </button>`).join("");
+          return `
+            <div class="insp-field">
+              <div class="insp-label">${FIELD_TITLES[field]}${changed ? `<span class="was">was ${escapeHtml(shortLabel(base))}</span><button type="button" class="link-btn" data-revert="${field}">Revert</button>` : ""}</div>
+              <div class="chips">${chips}</div>
+              ${field === "interpolation" && kind === "precut" ? `<div class="insp-note">No easing into a cut: the next keyframe is one frame later.</div>` : ""}
+            </div>`;
+        }).join("");
+        inspector.innerHTML = `
+          <div class="insp-head">
+            <div>
+              <div class="eyebrow">Keyframe ${index + 1} of ${state.keyframes.length}</div>
+              <div class="insp-time">${clockText(frame / state.fps)}<small>frame ${frame}</small></div>
+            </div>
+            <span>${added ? `<span class="stage-badge new">new</span> ` : ""}<span class="stage-badge ${kind}">${kindLabel}</span></span>
+          </div>
+          <label class="check insp-apply"><input type="checkbox" id="applyShot" ${state.applyShot ? "checked" : ""} /> Apply changes to the whole shot</label>
+          ${fields}
+          <div class="insp-actions">
+            ${!added && isEdited(index) ? `<button type="button" class="link-btn" data-revert-key>Revert this keyframe</button>` : "<span></span>"}
+            <button type="button" class="btn ghost small danger" data-delete ${deletable ? "" : "disabled"} title="Delete (Del)">${kind === "trans" ? "Delete keyframe" : "Delete this cut"}</button>
+          </div>
+          ${kind === "trans" ? "" : `<div class="insp-note">A cut is two keyframes one frame apart. Deleting it removes both (frames ${deletion.map(frameOf).join(" and ")}), so the previous shot carries on.</div>`}
+          ${index === 0 ? `<div class="insp-note">The first keyframe sets the opening shot and cannot be deleted.</div>` : ""}`;
+      }
+
+      // A transition is one keyframe; a cut is the pre-cut frame plus the cut frame, deleted together.
+      function deletionRange(index) {
+        const kind = eventKind(index);
+        if (kind === "trans") return [index];
+        const cut = kind === "cut" ? index : index + 1;
+        const pre = cut - 1;
+        return pre >= 0 && frameOf(pre) === frameOf(cut) - 1 ? [pre, cut] : [cut];
+      }
+
+      // New keyframes start from the labels the camera already has there, so adding one changes nothing until it is edited.
+      function addKeyframe(kind) {
+        if (state.busy || !state.keyframes.length) return;
+        const frame = Math.round(currentTime() * state.fps);
+        const indexOfFrame = (f) => state.keyframes.findIndex((row) => Number(row.frame) === f);
+        if (indexOfFrame(frame) >= 0) {
+          setEditStatus(`Frame ${frame} already has a keyframe. Move the playhead first.`);
+          return;
+        }
+        const prevIndex = indexAtTime(frame / state.fps);
+        const prev = state.keyframes[prevIndex];
+        const next = state.keyframes[prevIndex + 1];
+        const added = [];
+        if (kind === "trans") {
+          added.push({ ...prev, frame, stage: "keyframe" });
+        } else {
+          const preIndex = indexOfFrame(frame - 1);
+          if (frame < 1 || (preIndex >= 0 && eventKind(preIndex) !== "trans")) {
+            setEditStatus(`A cut at frame ${frame} would touch another cut. Move the playhead first.`);
+            return;
+          }
+          // The shot before holds up to the pre-cut frame; the new shot opens on the labels of the next keyframe.
+          if (preIndex < 0) added.push({ ...prev, frame: frame - 1, stage: "keyframe" });
+          added.push({ ...(next || prev), frame, stage: "cut" });
+        }
+        pushHistory();
+        state.keyframes = [...state.keyframes, ...added].sort((a, b) => Number(a.frame) - Number(b.frame));
+        state.selected = indexOfFrame(frame);
+        afterEdit();
+        setEditStatus(kind === "trans" ? `Added a transition at frame ${frame}.` : `Added a cut at frame ${frame}. Pick its labels on the right.`);
+      }
+
+      function deleteSelected() {
+        if (state.busy || state.selected < 0) return;
+        const indices = deletionRange(state.selected);
+        if (indices.includes(0)) return;
+        pushHistory();
+        const frame = frameOf(indices[0]);
+        state.keyframes = state.keyframes.filter((_row, i) => !indices.includes(i));
+        state.selected = indexAtTime(frame / state.fps);
+        afterEdit();
+      }
+
+      function setField(field, value) {
+        if (state.busy || state.selected < 0) return;
+        pushHistory();
+        const { start, end } = state.applyShot ? shotRange(state.selected) : { start: state.selected, end: state.selected + 1 };
+        for (let i = start; i < end; i += 1) {
+          if (field === "interpolation" && eventKind(i) === "precut") continue;
+          state.keyframes[i][field] = value;
+        }
+        afterEdit();
+      }
+
+      function afterEdit() {
+        updateCuts();
+        renderLanes();
+        renderInspector();
+        renderCounts();
+        updateBadge();
+        scheduleLiveCamera();
+      }
+
+      inspector.addEventListener("click", (event) => {
+        const chip = event.target.closest(".chip");
+        if (chip) {
+          chip.blur();
+          setField(chip.dataset.field, chip.dataset.value);
+          return;
+        }
+        const revert = event.target.closest("[data-revert]");
+        if (revert) {
+          pushHistory();
+          state.keyframes[state.selected][revert.dataset.revert] = baseRow(state.selected)[revert.dataset.revert];
+          afterEdit();
+          return;
+        }
+        if (event.target.closest("[data-revert-key]")) {
+          pushHistory();
+          state.keyframes[state.selected] = { ...baseRow(state.selected) };
+          afterEdit();
+          return;
+        }
+        if (event.target.closest("[data-delete]")) deleteSelected();
+      });
+      inspector.addEventListener("change", (event) => {
+        if (event.target.id === "applyShot") state.applyShot = event.target.checked;
+      });
+
+      function renderCounts() {
+        const edited = editedCount();
+        const addedKeys = addedCount();
+        const deleted = deletedFrames().length;
+        const parts = [edited ? `${edited} edited` : "", addedKeys ? `${addedKeys} added` : "", deleted ? `${deleted} deleted` : ""].filter(Boolean);
+        $("changedCount").textContent = parts.length ? parts.join(" · ") : "No edits";
+        $("discardBtn").disabled = parts.length === 0 || state.busy;
+        $("undoBtn").disabled = state.history.length === 0 || state.busy;
+        $("saveVmdBtn").disabled = state.busy;
+        $("saveRenderBtn").disabled = state.busy;
+        $("editMeta").textContent = `${state.cuts.size} cuts · ${state.keyframes.length} keyframes`;
+        const links = [];
+        if (state.version?.vmd_url) links.push(`<a class="btn small" href="${state.version.vmd_url}" download>VMD ↓</a>`);
+        if (state.version?.plan_url) links.push(`<a class="btn ghost small" target="_blank" href="${state.version.plan_url}">JSON ↗</a>`);
+        if (state.result?.summary_url) {
+          links.push(`<a class="btn ghost small" target="_blank" href="/music_processing/unseen_mmd_debug_viewer.html?summary=${encodeURIComponent(state.result.summary_url)}">Debug ↗</a>`);
+        }
+        $("editLinks").innerHTML = links.join("");
+      }
+
+      /* ----- timeline input ----- */
+      function secAtPointer(event) {
+        const box = content.getBoundingClientRect();
+        return Math.max(0, Math.min(1, (event.clientX - box.left) / box.width)) * state.duration;
+      }
+
+      let scrubbing = false;
+      content.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 || !state.keyframes.length) return;
+        const sec = secAtPointer(event);
+        if (event.target.closest(".tl-ruler")) {
+          scrubbing = true;
+          content.setPointerCapture(event.pointerId);
+          seekTime(sec);
+          return;
+        }
+        if (event.target.closest(".tl-lane")) {
+          seekTime(sec);
+          select(indexAtTime(sec), { reveal: false });
+        }
+      });
+      content.addEventListener("pointermove", (event) => {
+        if (scrubbing) seekTime(secAtPointer(event));
+      });
+      content.addEventListener("pointerup", (event) => {
+        if (!scrubbing) return;
+        scrubbing = false;
+        content.releasePointerCapture(event.pointerId);
+        select(indexAtTime(currentTime()), { reveal: false });
+      });
+      scroller.addEventListener("wheel", (event) => {
+        if (event.ctrlKey || event.metaKey) {
+          event.preventDefault();
+          const anchor = secAtPointer(event);
+          const pointerX = event.clientX - scroller.getBoundingClientRect().left;
+          setZoom(state.pxPerSec * Math.exp(-event.deltaY * 0.0025), anchor);
+          scroller.scrollLeft = Math.max(0, anchor * state.pxPerSec - pointerX);
+          return;
+        }
+        if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
+          event.preventDefault();
+          scroller.scrollLeft += event.deltaY;
+        }
+      }, { passive: false });
+
+      $("zoomRange").addEventListener("input", (event) => {
+        const fit = fitPxPerSec();
+        setZoom(fit * Math.pow(MAX_PX_PER_SEC / fit, Number(event.target.value) / 100));
+      });
+      $("zoomInBtn").addEventListener("click", () => setZoom(state.pxPerSec * 1.5));
+      $("zoomOutBtn").addEventListener("click", () => setZoom(state.pxPerSec / 1.5));
+      $("zoomFitBtn").addEventListener("click", () => setZoom(0, 0));
+      window.addEventListener("resize", () => {
+        if (state.keyframes.length && !$("tab-edit").hidden) setZoom(state.pxPerSec);
+      });
+
+      $("prevKeyBtn").addEventListener("click", (event) => {
+        event.currentTarget.blur();
+        select(state.selected - 1, { seek: true });
+      });
+      $("nextKeyBtn").addEventListener("click", (event) => {
+        event.currentTarget.blur();
+        select(state.selected + 1, { seek: true });
+      });
+      document.addEventListener("keydown", (event) => {
+        if ($("tab-edit").hidden || !state.keyframes.length) return;
+        const target = event.target;
+        if (target.closest?.("input, select, textarea")) return;
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+          event.preventDefault();
+          undo();
+        } else if (!event.ctrlKey && !event.metaKey && (event.key === "t" || event.key === "c")) {
+          event.preventDefault();
+          addKeyframe(event.key === "t" ? "trans" : "cut");
+        } else if (event.key === "Delete" || event.key === "Backspace") {
+          event.preventDefault();
+          deleteSelected();
+        } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+          event.preventDefault();
+          select(state.selected + (event.key === "ArrowLeft" ? -1 : 1), { seek: true });
+        } else if (event.key === " " && target !== media() && !target.closest?.("button, a")) {
+          // A focused video already toggles itself on Space.
+          event.preventDefault();
+          togglePlay();
+        }
+      });
+
+      /* ----- versions and saving ----- */
+      $("resultSelect").addEventListener("change", async (event) => {
+        if (!confirmDiscard()) {
+          event.target.value = String(state.results.indexOf(state.result));
+          return;
+        }
+        await selectResult(Number(event.target.value)).catch(showError);
+      });
+      $("versionSelect").addEventListener("change", async (event) => {
+        if (!confirmDiscard()) {
+          event.target.value = state.version.id;
+          return;
+        }
+        const version = versionsOf(state.result).find((item) => item.id === event.target.value);
+        if (version) await loadVersion(version).catch(showError);
+      });
+      $("refreshResultsBtn").addEventListener("click", () => {
+        if (confirmDiscard()) loadResults().catch(showError);
+      });
+      $("discardBtn").addEventListener("click", () => {
+        pushHistory();
+        state.keyframes = state.base.map((row) => ({ ...row }));
+        afterEdit();
+      });
+      $("addTransBtn").addEventListener("click", (event) => {
+        event.currentTarget.blur();
+        addKeyframe("trans");
+      });
+      $("addCutBtn").addEventListener("click", (event) => {
+        event.currentTarget.blur();
+        addKeyframe("cut");
+      });
+      $("undoBtn").addEventListener("click", (event) => {
+        event.currentTarget.blur();
+        undo();
+      });
+
+      function setBusy(text) {
+        state.busy = Boolean(text);
+        $("editBusy").classList.toggle("show", state.busy);
+        $("editBusyText").textContent = text || "";
+      }
+
+      async function save(renderPreview) {
+        const started = Date.now();
+        const label = renderPreview ? "Writing the VMD and rendering the preview. This takes about as long as the song." : "Writing the camera VMD...";
+        setEditStatus("");
+        setBusy(label);
+        renderCounts();
+        renderInspector();
+        const timer = setInterval(() => setBusy(`${label} (${formatSeconds((Date.now() - started) / 1000)})`), 1000);
+        try {
+          const response = await fetch("/api/unseen/shotplan/render", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              summary_url: state.result.summary_url,
+              source_plan_url: state.version.plan_url,
+              keyframes: state.keyframes,
+              render_preview: renderPreview,
+            }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || response.statusText);
+          setBase(state.keyframes);
+          clearInterval(timer);
+          setBusy("");
+          await loadResults(state.result.summary_url, result.edited_plan_url);
+          setEditStatus(`Saved as a new version${renderPreview ? "" : " (no video)"}.`);
+        } finally {
+          clearInterval(timer);
+          setBusy("");
+          renderCounts();
+          renderInspector();
+        }
+      }
+
+      function showError(error) {
+        console.error(error);
+        setEditStatus(`Error: ${error.message || error}`);
+      }
+
+      $("saveVmdBtn").addEventListener("click", () => save(false).catch(showError));
+      $("saveRenderBtn").addEventListener("click", () => save(true).catch(showError));
+      window.addEventListener("beforeunload", (event) => {
+        if (dirtyCount() > 0 || state.busy) event.preventDefault();
+      });
+
+      return {
+        ensureLoaded() {
+          if (!state.loaded) loadResults(new URLSearchParams(location.search).get("summary")).catch(showError);
+          else if (state.keyframes.length) setZoom(state.pxPerSec);
+        },
+        openSummary(summaryUrl) {
+          if (confirmDiscard()) loadResults(summaryUrl).catch(showError);
+        },
+      };
+    })();
+
+    /* ---------------- start ---------------- */
+    updateCutUi();
+    updateChangedMarks();
+    try {
+      $("skipMp4").checked = localStorage.getItem("cucat.skipMp4") === "1";
+    } catch {}
+    $("skipMp4").addEventListener("change", () => {
+      try {
+        localStorage.setItem("cucat.skipMp4", $("skipMp4").checked ? "1" : "0");
+      } catch {}
+    });
+    loadConfig().then(loadModels).catch(console.error);
+    loadReusableRuns().catch(console.error);
     refreshJobs().catch(console.error);
+    showTab(location.hash.slice(1));
   </script>
 </body>
 </html>

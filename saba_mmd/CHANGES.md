@@ -18,5 +18,6 @@ Packaging changes in this release:
 - Bundled required viewer resources and copied them next to the renderer on build.
 - Excluded SABA tests, example applications, mmd2obj, glslang/Vulkan, dependency demos, cached builds and user assets.
 - Added a repository-relative Windows build helper and direct Lua render example.
+- Video export (`ExportVideo` in Viewer.cpp/Viewer.h) sends raw RGB frames to ffmpeg's stdin instead of writing one PPM file per frame and encoding afterwards, with the same encoder settings. A 162 s, 1280x720 preview took 29 s instead of 46 s and no longer writes about 13 GB of temporary frames. On Windows the command runs through `_wpopen`, so WAV and MP4 paths with non-ASCII characters work.
 
-SOURCE_SNAPSHOT.json contains the hashes at import time. The GLFW CMake edit above intentionally changes its imported hash. New packaging/documentation files are not in that imported-file list.
+SOURCE_SNAPSHOT.json contains the hashes at import time. The GLFW CMake edit and the video export change above intentionally change their imported hashes. New packaging/documentation files are not in that imported-file list.

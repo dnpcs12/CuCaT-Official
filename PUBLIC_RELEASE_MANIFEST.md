@@ -3,7 +3,7 @@
 Included:
 
 - End-to-end unseen inference pipeline: `music_processing/run_unseen_mmd_timing_pipeline.py`
-- Local web demo for the same pipeline: `music_processing/serve_unseen_mmd_pipeline.py` with its pages (`unseen_mmd_pipeline_viewer.html`, `unseen_mmd_debug_viewer.html`, `shotplan_edit_viewer.html`, `final_cut_keyframe_viewer.html`)
+- Local web demo for the same pipeline: `music_processing/serve_unseen_mmd_pipeline.py` with its pages (`unseen_mmd_pipeline_viewer.html` with Generate and Edit tabs and the Edit tab's `unseen_live_preview.js`, `unseen_mmd_debug_viewer.html`, `final_cut_keyframe_viewer.html`)
 - V3.1 shot-plan inference modules under `shotplan_transformer/`
 - CP-SAT optimization modules under `shotplan_transformer/`
 - V3/V3.1 shot-plan solver and VMD writer under `camera_autoshot/`

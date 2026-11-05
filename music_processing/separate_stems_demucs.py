@@ -86,7 +86,7 @@ def run_demucs(
     command = [
         sys.executable,
         "-m",
-        "demucs",
+        "music_processing.demucs_cli",
         "-n",
         model,
         "-d",

@@ -238,6 +238,15 @@ def parse_args() -> argparse.Namespace:
         help="How to choose final frame count when audio and motion lengths differ.",
     )
     parser.add_argument("--force", action="store_true", help="Regenerate cached intermediate files.")
+    parser.add_argument(
+        "--reuse-from",
+        type=Path,
+        default=None,
+        help=(
+            "Output folder of an earlier run. Its motion conversion, Demucs stems, and beat tracking are reused "
+            "when they were made from the same WAV, VMD, and model with the same settings."
+        ),
+    )
 
     parser.add_argument("--demucs-model", default="htdemucs")
     parser.add_argument(
@@ -363,6 +372,12 @@ def parse_args() -> argparse.Namespace:
     # no minimum cut score).
     parser.add_argument("--density-cut-percent", type=float, default=70.0)
     parser.add_argument(
+        "--density-budget-scale",
+        type=float,
+        default=1.0,
+        help="Multiply the Stage-A keyframe budget (both passes) before it is split into cuts and transitions.",
+    )
+    parser.add_argument(
         "--density-cut-percent-unit",
         choices=["cut_keyframes", "cut_events"],
         default="cut_keyframes",
@@ -408,6 +423,117 @@ def _json_default(value: Any) -> Any:
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False, default=_json_default), encoding="utf-8")
+
+
+def _read_json_or_empty(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _file_sha1(path: Path) -> str:
+    digest = hashlib.sha1()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _same_file(recorded: Any, current: Path | None) -> bool:
+    if not recorded or current is None:
+        return False
+    earlier = Path(str(recorded))
+    if not (earlier.is_file() and current.is_file()):
+        return False
+    if earlier.resolve() == current.resolve():
+        return True
+    return earlier.stat().st_size == current.stat().st_size and _file_sha1(earlier) == _file_sha1(current)
+
+
+def _link_file(source: Path, destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.unlink(missing_ok=True)
+    try:
+        os.link(source, destination)
+    except OSError:
+        shutil.copy2(source, destination)
+
+
+def _reuse_earlier_preprocessing(
+    source_dir: Path,
+    *,
+    song_id: str,
+    intermediate_dir: Path,
+    inputs: dict[str, Any],
+    demucs_settings: dict[str, Any] | None,
+) -> dict[str, str]:
+    """Link an earlier run's motion conversion, Demucs stems, and beats into this run's intermediate folder.
+
+    Each one is reused only when it was made from the same files with the same settings; the stages then find
+    them as cached files. Anything else is computed as usual.
+    """
+
+    source_intermediate = source_dir / "intermediate"
+    earlier = _read_json_or_empty(source_intermediate / "inputs.json")
+    if not earlier:
+        # Runs made before inputs.json was written: recover the same facts from their summaries.
+        preprocess = _read_json_or_empty(source_dir / "preprocess_summary.json")
+        motion = preprocess.get("motion_conversion") or {}
+        command = [str(item) for item in motion.get("command") or []]
+        earlier = {
+            "wav": (preprocess.get("demucs") or {}).get("audio_path"),
+            "vmd": motion.get("vmd_path"),
+            "model": motion.get("model_path"),
+            "motion_end_frame": int(command[command.index("-end") + 1]) if "-end" in command[:-1] else None,
+        }
+
+    reused: dict[str, str] = {}
+    same_wav = _same_file(earlier.get("wav"), inputs["wav"])
+    if (
+        same_wav
+        and earlier.get("motion_end_frame") == inputs["motion_end_frame"]
+        and _same_file(earlier.get("vmd"), inputs["vmd"])
+        and _same_file(earlier.get("model"), inputs["model"])
+    ):
+        pairs = [
+            (source_intermediate / f"{source_dir.name}_{suffix}", intermediate_dir / f"{song_id}_{suffix}")
+            for suffix in ("GlobalTransform.json", "target_probe.json")
+        ]
+        if all(source.is_file() for source, _ in pairs):
+            for source, destination in pairs:
+                _link_file(source, destination)
+            reused["motion_conversion"] = str(source_dir)
+    if not same_wav:
+        return reused
+
+    demucs_dir = source_intermediate / "demucs"
+    demucs = _read_json_or_empty(demucs_dir / "summary.json")
+    stems = {name: Path(path) for name, path in (demucs.get("stem_files") or {}).items()}
+    if (
+        demucs_settings is not None
+        and demucs.get("returncode") == 0
+        and all(demucs.get(key) == value for key, value in demucs_settings.items())
+        and stems
+        and all(path.is_file() and path.is_relative_to(demucs_dir) for path in stems.values())
+    ):
+        target_dir = intermediate_dir / "demucs"
+        for path in stems.values():
+            _link_file(path, target_dir / path.relative_to(demucs_dir))
+        demucs.update(
+            output_dir=str(target_dir),
+            stem_files={name: str(target_dir / path.relative_to(demucs_dir)) for name, path in stems.items()},
+            reused_from=str(demucs_dir),
+        )
+        _write_json(target_dir / "summary.json", demucs)
+        reused["demucs"] = str(source_dir)
+
+    madmom_path = source_intermediate / "madmom_downbeats.json"
+    if madmom_path.is_file() and "fallback_error" not in _read_json_or_empty(madmom_path):
+        _link_file(madmom_path, intermediate_dir / "madmom_downbeats.json")
+        reused["beat_tracking"] = str(source_dir)
+    return reused
 
 
 def _find_single_file(input_dir: Path, suffix: str) -> Path:
@@ -539,7 +665,9 @@ def _run_demucs(
 ) -> dict[str, Any]:
     summary_path = output_dir / "summary.json"
     if summary_path.exists() and not force:
-        return json.loads(summary_path.read_text(encoding="utf-8"))
+        cached = json.loads(summary_path.read_text(encoding="utf-8"))
+        if cached.get("returncode") in (None, 0):
+            return cached
     if skip:
         summary = {
             "song_id": song_id,
@@ -563,7 +691,7 @@ def _run_demucs(
     command = [
         python_command,
         "-m",
-        "demucs",
+        "music_processing.demucs_cli",
         "-n",
         str(model),
         "-d",
@@ -765,17 +893,42 @@ def _build_dance_features(
     return full_dance, full_names, compact_dance, compact_names, metadata
 
 
+def _vmd_motion_frame_count(vmd_path: Path | None) -> int | None:
+    """Frames a dance VMD covers: its last bone or morph key plus one (None for a VMD without motion keys)."""
+
+    if vmd_path is None or not Path(vmd_path).is_file():
+        return None
+    data = Path(vmd_path).read_bytes()
+    offset = 50  # 30-byte signature + 20-byte model name
+    last_frame = -1
+    for record_size in (111, 23):  # bone keys, then morph keys; both store the frame after a 15-byte name
+        if offset + 4 > len(data):
+            break
+        count = int(np.frombuffer(data, dtype="<u4", count=1, offset=offset)[0])
+        offset += 4
+        if count:
+            records = np.frombuffer(data, dtype=np.dtype([("name", "S15"), ("frame", "<u4"), ("rest", f"V{record_size - 19}")]), count=count, offset=offset)
+            last_frame = max(last_frame, int(records["frame"].max()))
+        offset += count * record_size
+    return last_frame + 1 if last_frame >= 0 else None
+
+
 def _choose_frame_count(
     *,
     audio_frames: int,
     motion_json_path: Path | None,
     frame_policy: str,
     fps: float,
+    vmd_path: Path | None = None,
 ) -> int:
     if motion_json_path is None or str(frame_policy) == "audio":
         return int(audio_frames)
     frame_numbers, positions, _rotations, _bone_names = load_motion_transforms(motion_json_path)
     motion_frames = int(positions.shape[0])
+    # The motion JSON is evaluated up to the audio length, holding the last pose, so the dance's own end comes from its VMD.
+    vmd_frames = _vmd_motion_frame_count(vmd_path)
+    if vmd_frames is not None:
+        motion_frames = min(motion_frames, vmd_frames)
     if str(frame_policy) == "motion":
         return max(1, motion_frames)
     return max(1, min(int(audio_frames), motion_frames))
@@ -963,9 +1116,10 @@ def _select_cuts(
     min_gap_sec: float,
     window_sec: float,
     density_cut_percent_unit: str = "cut_keyframes",
+    budget_scale: float = 1.0,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     pred_keyframe_mass = float(np.sum(density_by_frame))
-    total_budget = max(0, int(round(pred_keyframe_mass)))
+    total_budget = max(0, int(round(pred_keyframe_mass * max(0.0, float(budget_scale)))))
     ratio = min(max(0.0, float(density_cut_percent)) / 100.0, 1.0)
     if density_cut_percent_unit == "cut_keyframes":
         # Same as export_final_cut_key_timings.density_event_budgets: the percent is the share of
@@ -1008,6 +1162,7 @@ def _select_cuts(
     ]
     budget = {
         "pred_keyframe_mass": round(pred_keyframe_mass, 6),
+        "density_budget_scale": float(budget_scale),
         "total_keyframe_budget": int(total_budget),
         "density_cut_percent": float(density_cut_percent),
         "cut_budget_requested": int(cut_budget),
@@ -1880,6 +2035,26 @@ def main() -> None:
         audio_frames, audio_duration_sec, sample_rate = _audio_frame_count(wav_path, args.fps)
         motion_json_path: Path | None = Path(args.motion_json).resolve() if args.motion_json else None
         target_probe_path = intermediate_dir / f"{song_id}_target_probe.json"
+        run_inputs = {
+            "wav": wav_path,
+            "vmd": vmd_path,
+            "model": Path(args.model_path).resolve() if args.model_path else None,
+            "fps": float(args.fps),
+            "motion_end_frame": audio_frames - 1,
+        }
+        reused_preprocessing: dict[str, str] = {}
+        if args.reuse_from is not None and not args.force:
+            reused_preprocessing = _reuse_earlier_preprocessing(
+                Path(args.reuse_from).resolve(),
+                song_id=song_id,
+                intermediate_dir=intermediate_dir,
+                inputs=run_inputs,
+                demucs_settings=None
+                if args.skip_demucs
+                else {"model": str(args.demucs_model), "shifts": int(args.demucs_shifts), "segment": args.demucs_segment},
+            )
+            print(f"Reused from {args.reuse_from}: {', '.join(reused_preprocessing) or 'nothing'}", flush=True)
+        _write_json(intermediate_dir / "inputs.json", run_inputs)
 
     motion_conversion_summary: dict[str, Any] | None = None
     if motion_json_path is None:
@@ -1917,6 +2092,7 @@ def main() -> None:
             motion_json_path=motion_json_path,
             frame_policy=str(args.frame_policy),
             fps=float(args.fps),
+            vmd_path=vmd_path,
         )
 
     with timed_stage(stage_timings, "demucs", "Demucs stem separation"):
@@ -2017,6 +2193,7 @@ def main() -> None:
             min_gap_sec=float(args.cut_min_gap_sec),
             window_sec=float(args.cut_window_sec),
             density_cut_percent_unit=str(args.density_cut_percent_unit),
+            budget_scale=float(args.density_budget_scale),
         )
 
     selected_cut_frames = [int(event["frame"]) for event in selected_cuts]
@@ -2032,7 +2209,7 @@ def main() -> None:
             stride_frames=int(args.density_stride_frames),
         )
         # Recompute the budget after adding previous-cut context. Keep the already selected cut count stable.
-        final_total_budget = max(0, int(round(float(np.sum(density_final)))))
+        final_total_budget = max(0, int(round(float(np.sum(density_final)) * max(0.0, float(args.density_budget_scale)))))
         cut_budget["pred_keyframe_mass_after_cut_context"] = round(float(np.sum(density_final)), 6)
         cut_budget["total_keyframe_budget_after_cut_context"] = int(final_total_budget)
 
@@ -2096,6 +2273,7 @@ def main() -> None:
         "selection": {
             "cut_selection_mode": str(args.cut_selection_mode),
             "density_cut_percent": float(args.density_cut_percent),
+            "density_budget_scale": float(args.density_budget_scale),
             "density_cut_percent_unit": str(args.density_cut_percent_unit),
             "cut_min_gap_sec": float(args.cut_min_gap_sec),
             "cut_min_score": float(args.cut_min_score),
@@ -2264,6 +2442,7 @@ def main() -> None:
             "madmom": madmom_summary,
             "dance_metadata": dance_metadata,
             "feature_path": str(features_path),
+            "reused_preprocessing": reused_preprocessing,
         },
     )
     _write_json(
